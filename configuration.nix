@@ -46,56 +46,6 @@
     enable = true;
     enableOnBoot = true;
     #liveRestore = true; # doesn't work well with docker swarm
-    daemon.settings = {
-      "data-root" = "/var/lib/docker";
-    };
-  };
-
-  ############################################################
-  # Harness
-  ############################################################
-  virtualisation.docker.rootless = {
-    enable = true;
-    setSocketVariable = false; # don't override DOCKER_HOST for all users globally
-    daemon.settings = {
-      "data-root" = "/var/lib/docker-harness";
-    };
-  };
-  system.userActivationScripts.harnessRootlessDocker = {
-    text = ''
-      if [ "$USER" = "harness" ]; then
-        ${pkgs.systemd}/bin/systemctl --user enable --now docker.service || true
-      fi
-    '';
-  };
-  users.groups.harness = { };
-  users.users.harness = {
-    isSystemUser = true;
-    description  = "Harness CI runner user";
-    group        = "harness";
-    extraGroups  = [ ];
-    home         = "/var/lib/harness";
-    createHome   = true;
-    linger       = true;
-    openssh.authorizedKeys.keys = [
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ/YDMGqrfutSJi2X4CmSxGrVtHXfLS6eiR4GbLsj8xJ"
-    ];
-  };
-  systemd.services.harness-delegate = {
-    description = "Harness CI delegate (rootless Docker)";
-    after = [ "network-online.target" ];
-    wants = [ "network-online.target" ];
-    wantedBy = [ "multi-user.target" ];
-    serviceConfig = {
-      Type = "simple";
-      User = "harness";
-      ExecStartPre = "${pkgs.systemd}/bin/machinectl shell harness@ /.nix-profile/bin/systemctl --user start docker.service";
-      Environment = [
-        "XDG_RUNTIME_DIR=/run/user/%U"
-        "DOCKER_HOST=unix:///run/user/%U/docker.sock"
-      ];
-      ExecStart = "/opt/harness/delegate/bin/delegate --some --flags";
-    };
   };
 
   ############################################################

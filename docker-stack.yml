@@ -1,0 +1,256 @@
+version: "3.9"
+
+secrets:
+  postgres_password:
+    external: true
+  dragonfly_password:
+    external: true
+  hanko_secret_key:
+    external: true
+  oauth2_proxy_cookie_secret:
+    external: true
+  oauth2_proxy_client_secret:
+    external: true
+
+networks:
+  web:
+    driver: overlay
+    attachable: true
+  internal:
+    driver: overlay
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
+  hanko_config:
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: razcloud
+      POSTGRES_USER: razcloud
+      # Use Docker secret file
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    networks:
+      - internal
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly
+    # Dragonfly has no *_FILE env; read the secret file and pass as arg
+    command: >
+      sh -c 'dragonfly
+             --requirepass "$(cat /run/secrets/dragonfly_password)"
+             --bind 0.0.0.0:6379'
+    secrets:
+      - dragonfly_password
+    networks:
+      - internal
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+
+  # DB broker that creates per-app DBs and returns URIs
+  database-broker:
+    image: ghcr.io/razzie-cloud/database-broker:1.0.0
+    secrets:
+      - postgres_password
+      - dragonfly_password
+    networks:
+      - internal
+    environment:
+      SERVER_PORT: "8080"
+    command: >
+      sh -c '
+        set -e
+
+        # Construct the URIs dynamically from the secrets
+        export POSTGRES_URI="postgres://razcloud:$(cat /run/secrets/postgres_password)@postgres:5432/razcloud?sslmode=disable"
+        export DRAGONFLY_URI="redis://default:$(cat /run/secrets/dragonfly_password)@dragonfly:6379/0"
+
+        # Exec the broker normally; it will read POSTGRES_URI and DRAGONFLY_URI from env
+        exec database-broker
+      '
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  hanko:
+    image: ghcr.io/teamhanko/hanko:latest
+    networks:
+      - internal
+      - web
+    depends_on:
+      - database-broker
+    secrets:
+      - hanko_secret_key
+    volumes:
+      - hanko_config:/config
+    # At startup:
+    #   * ask database-broker for Postgres/Redis URIs
+    #   * write /config/config.yaml
+    #   * run migrations
+    #   * start public+admin API
+    command: >
+      sh -c '
+        set -e
+
+        HANKO_SECRET_KEY="$(cat /run/secrets/hanko_secret_key)"
+
+        # Get connection strings from database-broker
+        POSTGRES_URI="$(wget -qO- http://database-broker:8080/instances/postgres/hanko/uri)"
+        REDIS_URI="$(wget -qO- http://database-broker:8080/instances/redis/hanko/uri)"
+
+        # Extract Redis address+password from URI
+        REDIS_ADDRESS="$(printf "%s" "$REDIS_URI" | sed -E "s#^redis://([^:]+:)?([^@]*)@([^/]+)/?.*#\3#")"
+        REDIS_PASSWORD="$(printf "%s" "$REDIS_URI" | sed -nE "s#^redis://([^:]+:)?([^@]*)@.*#\2#p")"
+
+        cat > /config/config.yaml <<EOF
+        database:
+          url: "$POSTGRES_URI"
+          dialect: "postgres"
+
+        # Use Redis for rate limiting (needs Redis instance)
+        rate_limiter:
+          store: "redis"
+          redis_config:
+            address: "$REDIS_ADDRESS"
+            password: "$REDIS_PASSWORD"
+
+        # Passkey-only, no passwords, no email auth
+        password:
+          enabled: false
+        passcode:
+          enabled: false
+        passkey:
+          enabled: true
+
+        email:
+          enabled: false
+          use_for_authentication: false
+
+        # Disable self-service registration
+        registration:
+          enabled: false
+
+        # Configure WebAuthn (adjust to your domain)
+        webauthn:
+          relying_party:
+            id: "razzie.cloud"
+            origins:
+              - "https://auth.razzie.cloud"
+
+        server:
+          public:
+            address: "0.0.0.0:8000"
+          admin:
+            address: "0.0.0.0:8001"
+
+        secrets:
+          keys:
+            - "$HANKO_SECRET_KEY"
+        EOF
+
+        /hanko migrate up --config /config/config.yaml
+        exec /hanko serve all --config /config/config.yaml
+      '
+    deploy:
+      labels:
+        # Hanko public API & UI
+        caddy: auth.razzie.cloud
+        caddy.reverse_proxy: "{{upstreams 8000}}"
+      restart_policy:
+        condition: on-failure
+
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+    networks:
+      - web
+      - internal
+    depends_on:
+      - hanko
+    secrets:
+      - oauth2_proxy_cookie_secret
+      - oauth2_proxy_client_secret
+    environment:
+      # Use Hanko as an OIDC provider (you must configure the client in Hanko)
+      OAUTH2_PROXY_PROVIDER: oidc
+      OAUTH2_PROXY_OIDC_ISSUER_URL: https://auth.razzie.cloud
+      OAUTH2_PROXY_CLIENT_ID: hanko-oauth-client
+      OAUTH2_PROXY_REDIRECT_URL: https://oauth2.razzie.cloud/oauth2/callback
+
+      # Generic oauth2-proxy bits
+      OAUTH2_PROXY_COOKIE_SECURE: "true"
+      OAUTH2_PROXY_EMAIL_DOMAINS: "*"
+      OAUTH2_PROXY_HTTP_ADDRESS: "0.0.0.0:4180"
+      # For Caddy forward_auth integration :contentReference[oaicite:0]{index=0}
+      OAUTH2_PROXY_REVERSE_PROXY: "true"
+      OAUTH2_PROXY_UPSTREAMS: "static://202"
+    command: >
+      sh -c '
+        export OAUTH2_PROXY_COOKIE_SECRET="$(cat /run/secrets/oauth2_proxy_cookie_secret)"
+        export OAUTH2_PROXY_CLIENT_SECRET="$(cat /run/secrets/oauth2_proxy_client_secret)"
+        exec oauth2-proxy
+      '
+    deploy:
+      labels:
+        # Expose oauth2-proxy itself (for /oauth2/* endpoints)
+        caddy: oauth2.razzie.cloud
+        caddy.reverse_proxy: "{{upstreams 4180}}"
+      restart_policy:
+        condition: on-failure
+
+  # Whoami demo app, fully hidden behind auth wall
+  whoami:
+    image: traefik/whoami
+    networks:
+      - web
+    deploy:
+      labels:
+        caddy: whoami.razzie.cloud
+        caddy.reverse_proxy: "{{upstreams 80}}"
+        # Apply auth snippet defined on the Caddy service
+        caddy.import: oauth2_forward_auth
+      restart_policy:
+        condition: on-failure
+
+  # Caddy + caddy-docker-proxy, 80/443 open to the world
+  caddy-docker-proxy:
+    image: lucaslorentz/caddy-docker-proxy:2.8-alpine
+    networks:
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      CADDY_INGRESS_NETWORKS: "web"
+      # CADDY_EMAIL: "system@razzie.cloud"   # optionally set ACME email
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+      labels:
+        # Define a reusable forward_auth snippet to oauth2-proxy :contentReference[oaicite:1]{index=1}
+        caddy: (oauth2_forward_auth)
+        caddy.forward_auth: oauth2-proxy:4180
+        caddy.forward_auth.uri: /oauth2/auth

@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Remote context & stack name
 DOCKER_CONTEXT="${DOCKER_CONTEXT:-razcloud}"
-STACK_NAME="${STACK_NAME:-razzie-cloud}"
+export STACK_NAME="${STACK_NAME:-razzie-cloud}"
 
 # Simple idempotent secret helper
 ensure_secret() {
@@ -23,7 +23,6 @@ ensure_secret() {
 ensure_secret postgres_password
 ensure_secret dragonfly_password
 ensure_secret hanko_secret_key
-ensure_secret oauth2_proxy_cookie_secret
 ensure_secret oauth2_proxy_client_secret
 
 echo "Deploying stack '$STACK_NAME' to context '$DOCKER_CONTEXT'..."

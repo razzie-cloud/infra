@@ -1,0 +1,43 @@
+database:
+  url: "__POSTGRES_URI__"
+  dialect: "postgres"
+
+# Use Redis for rate limiting (needs Redis instance)
+rate_limiter:
+  store: "redis"
+  redis_config:
+    address: "__REDIS_ADDRESS__"
+    password: "__REDIS_PASSWORD__"
+
+# Passkey-only, no passwords, no email auth
+password:
+  enabled: false
+passcode:
+  enabled: false
+passkey:
+  enabled: true
+
+email:
+  enabled: false
+  use_for_authentication: false
+
+# Disable self-service registration
+registration:
+  enabled: false
+
+# Configure WebAuthn (adjust to your domain)
+webauthn:
+  relying_party:
+    id: "__DOMAIN__"
+    origins:
+      - "https://auth.__DOMAIN__"
+
+server:
+  public:
+    address: "0.0.0.0:8000"
+  admin:
+    address: "0.0.0.0:8001"
+
+secrets:
+  keys:
+    - "__HANKO_SECRET_KEY__"

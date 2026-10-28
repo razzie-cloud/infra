@@ -14,12 +14,17 @@ identity headers before forward auth and reverse proxy, including callback paths
 The web overlay supplies outbound S3 HTTPS access; database traffic stays on the
 internal overlay. The default policy blocks private S3 endpoints.
 
-The secret volume holds credentials and crypt recovery passwords, separate from
-PostgreSQL. Use protected/encrypted host storage, back up metadata and secret
-files together, and select exactly one node with `files_storage=true`. The overlay
-places the single files replica there. The files container runs as UID/GID 10001.
-Configure shared protected storage before scaling or relocating it. Existing
-external PostgreSQL/Dragonfly secrets are supplied by the base stack.
+Files stores credentials and crypt recovery passwords in its broker-provisioned
+PostgreSQL database. Back up that database; there is no files-specific persistent
+volume or storage-node placement constraint. Replicas can share PostgreSQL without
+sharing a host directory. The container still runs as UID/GID 10001. Existing
+external PostgreSQL/Dragonfly passwords remain base-stack Docker secrets.
+
+For a previously deployed file-backed version, stop the old files replicas and
+run one new instance with the old secret volume temporarily mounted read-only and
+`IMPORT_SECRETS_DIR` set to its mount path. Verify import and a database backup,
+then remove the import setting and mount. See `files/README.md` in the parent
+checkout for migration details. Do not delete the old volume before that verification.
 
 Validate the merged configuration without deploying:
 

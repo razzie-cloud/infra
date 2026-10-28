@@ -1,0 +1,49 @@
+# Merge with docker-stack.yml only after publishing the two service images.
+# FILES_IMAGE and ACCESS_GATEWAY_IMAGE must be immutable published tags/digests.
+version: "3.9"
+volumes:
+  files_secrets:
+services:
+  access-gateway:
+    image: ${ACCESS_GATEWAY_IMAGE:?Set a published access-gateway image}
+    environment:
+      POSTGRES_URI_FROM: http://database-broker:8080/v1/instances/postgres/access_gateway/uri
+      REDIS_URI_FROM: http://database-broker:8080/v1/instances/redis/access_gateway/uri
+      ORIGIN: https://auth.razzie.cloud
+      RP_ID: auth.razzie.cloud
+      RP_NAME: Razcloud
+      FORWARD_AUTH_ORIGINS: https://files.razzie.cloud,https://whoami.razzie.cloud
+    networks: [internal, web]
+    deploy:
+      replicas: 1
+      labels:
+        caddy: auth.razzie.cloud
+        caddy.reverse_proxy: "{{upstreams 8080}}"
+      restart_policy:
+        condition: on-failure
+  files:
+    image: ${FILES_IMAGE:?Set a published files image}
+    environment:
+      POSTGRES_URI_FROM: http://database-broker:8080/v1/instances/postgres/files/uri
+      ORIGIN: https://files.razzie.cloud
+      SECRETS_DIR: /var/lib/files/secrets
+    volumes:
+      - files_secrets:/var/lib/files/secrets
+    networks: [internal, web]
+    deploy:
+      # Secrets are local to this node. Configure shared protected storage first
+      # before increasing replica count or moving the service to another node.
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.files_storage == true
+      labels:
+        caddy: files.razzie.cloud
+        caddy.route.0_request_header: -X-Auth-Request-User
+        caddy.route.1_request_header: -X-Auth-Request-Name
+        caddy.route.2_forward_auth: access-gateway:8080
+        caddy.route.2_forward_auth.uri: /forward_auth
+        caddy.route.2_forward_auth.copy_headers: X-Auth-Request-User X-Auth-Request-Name
+        caddy.route.3_reverse_proxy: "{{upstreams 8080}}"
+      restart_policy:
+        condition: on-failure

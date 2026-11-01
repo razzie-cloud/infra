@@ -22,8 +22,6 @@ ensure_secret() {
 
 ensure_secret postgres_password
 ensure_secret dragonfly_password
-ensure_secret hanko_secret_key
-ensure_secret oauth2_proxy_client_secret
 
 echo "Deploying stack '$STACK_NAME' to context '$DOCKER_CONTEXT'..."
 docker --context "$DOCKER_CONTEXT" stack deploy -c docker-stack.yml "$STACK_NAME"

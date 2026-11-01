@@ -5,10 +5,6 @@ secrets:
     external: true
   dragonfly_password:
     external: true
-  hanko_secret_key:
-    external: true
-  oauth2_proxy_client_secret:
-    external: true
 
 networks:
   web:
@@ -24,7 +20,7 @@ volumes:
 
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:${POSTGRES_IMAGE_TAG:-17-alpine}
     environment:
       POSTGRES_DB: razcloud
       POSTGRES_USER: razcloud
@@ -44,7 +40,7 @@ services:
         condition: on-failure
 
   dragonfly:
-    image: docker.dragonflydb.io/dragonflydb/dragonfly
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:${DRAGONFLY_IMAGE_TAG:-latest}
     # Dragonfly has no *_FILE env; read the secret file and pass as arg
     command: >
       sh -c 'dragonfly
@@ -63,7 +59,7 @@ services:
 
   # DB broker that creates per-app DBs and returns URIs
   database-broker:
-    image: ghcr.io/razzie-cloud/database-broker:1.0.2
+    image: ghcr.io/razzie-cloud/database-broker:${DATABASE_BROKER_IMAGE_TAG:-v1.0.3}
     depends_on:
       - postgres
       - dragonfly
@@ -71,67 +67,68 @@ services:
       - postgres_password
       - dragonfly_password
     environment:
-      POSTGRES_URI: postgresql://razcloud@postgres:5432/razcloud
+      POSTGRES_URI: postgresql://razcloud@postgres:5432/razcloud?connect_timeout=5
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       DRAGONFLY_URI: redis://dragonfly:6379
       DRAGONFLY_PASSWORD_FILE: /run/secrets/dragonfly_password
+    # Swarm ignores depends_on; restart a broker that missed database startup.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/v1/instances/postgres"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
     networks:
       - internal
     deploy:
       restart_policy:
         condition: on-failure
 
-  hanko:
-    image: ghcr.io/razzie-cloud/hanko:latest
-    networks:
-      - internal
-      - web
-    depends_on:
-      - database-broker
-    secrets:
-      - hanko_secret_key
-    deploy:
-      labels:
-        # Hanko public API & UI
-        caddy: auth.razzie.cloud
-        caddy.reverse_proxy: "{{upstreams 8000}}"
-      restart_policy:
-        condition: on-failure
-
-  oauth2-proxy:
-    image: quay.io/oauth2-proxy/oauth2-proxy:v7.13.0
-    networks:
-      - web
-      - internal
-    depends_on:
-      - hanko
-    secrets:
-      - oauth2_proxy_client_secret
+  access-gateway:
+    image: ghcr.io/razzie-cloud/access-gateway:${ACCESS_GATEWAY_IMAGE_TAG:-v1.0.0}
     environment:
-      # Use Hanko as an OIDC provider (you must configure the client in Hanko)
-      OAUTH2_PROXY_PROVIDER: oidc
-      OAUTH2_PROXY_OIDC_ISSUER_URL: https://auth.razzie.cloud
-      OAUTH2_PROXY_CLIENT_ID: hanko-oauth-client
-      OAUTH2_PROXY_CLIENT_SECRET_FILE: /run/secrets/oauth2_proxy_client_secret
-      OAUTH2_PROXY_REDIRECT_URL: https://oauth2.razzie.cloud/oauth2/callback
-      # Generic oauth2-proxy bits
-      OAUTH2_PROXY_COOKIE_SECURE: "false"
-      OAUTH2_PROXY_EMAIL_DOMAINS: "*"
-      OAUTH2_PROXY_HTTP_ADDRESS: "0.0.0.0:4180"
-      # For Caddy forward_auth integration :contentReference[oaicite:0]{index=0}
-      OAUTH2_PROXY_REVERSE_PROXY: "true"
-      OAUTH2_PROXY_UPSTREAMS: "static://202"
+      POSTGRES_URI_FROM: http://database-broker:8080/v1/instances/postgres/access_gateway/uri
+      REDIS_URI_FROM: http://database-broker:8080/v1/instances/redis/access_gateway/uri
+      ORIGIN: https://auth.razzie.cloud
+      RP_ID: auth.razzie.cloud
+      RP_NAME: Razcloud
+      # Gateway ports are private; accept client IPs from the overlay proxy.
+      TRUSTED_PROXIES: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+      FORWARD_AUTH_ORIGINS: https://files.razzie.cloud,https://whoami.razzie.cloud
+    networks:
+      - internal
+      - web
     deploy:
       labels:
-        # Expose oauth2-proxy itself (for /oauth2/* endpoints)
-        caddy: oauth2.razzie.cloud
-        caddy.reverse_proxy: "{{upstreams 4180}}"
+        caddy: auth.razzie.cloud
+        caddy.reverse_proxy: "{{upstreams 8080}}"
+      restart_policy:
+        condition: on-failure
+
+  files:
+    image: ghcr.io/razzie-cloud/files:${FILES_IMAGE_TAG:-v1.0.0}
+    environment:
+      POSTGRES_URI_FROM: http://database-broker:8080/v1/instances/postgres/files/uri
+      ORIGIN: https://files.razzie.cloud
+    networks:
+      - internal
+      - web
+    deploy:
+      labels:
+        caddy: files.razzie.cloud
+        # Keep every path, including /_auth/callback, behind forward auth.
+        caddy.route.0_request_header: -X-Auth-Request-User
+        caddy.route.1_request_header: -X-Auth-Request-Name
+        caddy.route.2_forward_auth: access-gateway:8080
+        caddy.route.2_forward_auth.uri: /forward_auth
+        caddy.route.2_forward_auth.copy_headers: X-Auth-Request-User X-Auth-Request-Name
+        caddy.route.3_reverse_proxy: "{{upstreams 8080}}"
       restart_policy:
         condition: on-failure
 
   # Whoami demo app, fully hidden behind auth wall
   whoami:
-    image: traefik/whoami
+    image: traefik/whoami:${WHOAMI_IMAGE_TAG:-latest}
     networks:
       - web
     deploy:
@@ -139,13 +136,13 @@ services:
         caddy: whoami.razzie.cloud
         caddy.reverse_proxy: "{{upstreams 80}}"
         # Apply auth snippet defined on the Caddy service
-        caddy.import: oauth2_forward_auth
+        caddy.import: access_gateway
       restart_policy:
         condition: on-failure
 
   # Caddy + caddy-docker-proxy, 80/443 open to the world
   caddy-docker-proxy:
-    image: lucaslorentz/caddy-docker-proxy:2.8-alpine
+    image: lucaslorentz/caddy-docker-proxy:${CADDY_DOCKER_PROXY_IMAGE_TAG:-2.8-alpine}
     networks:
       - web
     ports:
@@ -165,7 +162,8 @@ services:
       restart_policy:
         condition: on-failure
       labels:
-        # Define a reusable forward_auth snippet to oauth2-proxy :contentReference[oaicite:1]{index=1}
-        caddy: (oauth2_forward_auth)
-        caddy.forward_auth: oauth2-proxy:4180
-        caddy.forward_auth.uri: /oauth2/auth
+        # Define a reusable forward_auth snippet to access gateway
+        caddy: (access_gateway)
+        caddy.forward_auth: access-gateway:8080
+        caddy.forward_auth.uri: /forward_auth
+        caddy.forward_auth.copy_headers: X-Auth-Request-User X-Auth-Request-Name

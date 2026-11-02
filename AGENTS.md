@@ -24,11 +24,14 @@
 - PostgreSQL, Dragonfly, and the broker use the `internal` overlay. Gateway and
   files join `internal` and `web`; Caddy and whoami join `web`. Only Caddy
   publishes ingress ports (80/443). Keep databases and broker APIs private.
-- Caddy configuration uses service deployment labels. Keep every files path,
+- Caddy configuration uses service deployment labels. Keep every files management path,
   including `/_auth/callback`, behind forward auth. Strip incoming identity
   headers before authentication and copy verified identity headers from the
-  gateway before proxying to files.
-- Change public DNS, TLS, Caddy host labels, gateway/files `ORIGIN`, gateway
+  gateway before proxying to files. The separate shared-files host deliberately
+  bypasses forward auth for `/s/*` and `/static/*` only, strips identity headers,
+  and returns 404 for other paths. Its SHARE_ORIGIN must have a different hostname
+  and is not a gateway FORWARD_AUTH_ORIGINS entry.
+- Change public DNS, TLS, Caddy host labels, gateway/files `ORIGIN`, files `SHARE_ORIGIN`, gateway
   `RP_ID`, and `FORWARD_AUTH_ORIGINS` together. Gateway trusts private proxy
   ranges because its ports are reachable only through the Docker networks.
 - Swarm ignores `depends_on`. Preserve restart policies, the broker's bounded

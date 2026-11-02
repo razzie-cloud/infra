@@ -110,6 +110,7 @@ services:
     environment:
       POSTGRES_URI_FROM: http://database-broker:8080/v1/instances/postgres/files/uri
       ORIGIN: https://files.razzie.cloud
+      SHARE_ORIGIN: https://shared-files.razzie.cloud
     networks:
       - internal
       - web
@@ -123,6 +124,15 @@ services:
         caddy.route.2_forward_auth.uri: /forward_auth
         caddy.route.2_forward_auth.copy_headers: X-Auth-Request-User X-Auth-Request-Name
         caddy.route.3_reverse_proxy: "{{upstreams 8080}}"
+        # Public capabilities use a separate host; management stays behind SSO.
+        caddy_1: shared-files.razzie.cloud
+        caddy_1.route.0_request_header: -X-Auth-Request-User
+        caddy_1.route.1_request_header: -X-Auth-Request-Name
+        caddy_1.route.2_handle: /s/*
+        caddy_1.route.2_handle.reverse_proxy: "{{upstreams 8080}}"
+        caddy_1.route.3_handle: /static/*
+        caddy_1.route.3_handle.reverse_proxy: "{{upstreams 8080}}"
+        caddy_1.route.4_handle.respond: "404"
       restart_policy:
         condition: on-failure
 

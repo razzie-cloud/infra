@@ -36,7 +36,14 @@ existing external database secrets, and creates missing ones before deploying.
 When called directly, it needs exported or inline environment settings: Swarm
 does not load `.env` automatically. One stack file includes all services.
 
-Public routes are `auth.razzie.cloud`, `files.razzie.cloud`, and
-`whoami.razzie.cloud`. For another domain, update DNS, Caddy labels, `ORIGIN`,
+Public routes are `auth.razzie.cloud`, `files.razzie.cloud`,
+`shared-files.razzie.cloud`, and `whoami.razzie.cloud`. Create DNS for the share
+hostname before deploying a sharing-capable files image. Its public `/s/*` and
+`/static/*` routes bypass forward auth; all other paths return 404. Management
+on `files.razzie.cloud` remains fully protected. `SHARE_ORIGIN` must use a separate
+hostname and must not be added to `FORWARD_AUTH_ORIGINS`. Share password cookies
+are host-only. Each files replica caches share/storage metadata for 30 seconds;
+revocation is immediate locally and may take 30 seconds on other replicas.
+For another domain, update DNS, Caddy labels, `ORIGIN`, `SHARE_ORIGIN`,
 `RP_ID`, and `FORWARD_AUTH_ORIGINS` together. Back up PostgreSQL: files stores
 credentials and crypt passwords there; object data stays in S3.

@@ -1,0 +1,4 @@
+# Local deployment configuration
+.env
+.env.*
+!.env.example

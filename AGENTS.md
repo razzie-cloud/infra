@@ -15,10 +15,12 @@
 ## Stack invariants
 
 - `docker-stack.yml` includes all services; no files overlay is needed. Image
-  tags use `${SERVICE_IMAGE_TAG:-default}` interpolation. Keep the variable
-  names and defaults documented in `README.md` synchronized with the stack.
-  Broker tags now include the `v` prefix (`v1.0.3`). Referenced images must be
-  published before deployment; changing a service checkout does not publish it.
+  tags are required environment variables with no version defaults in the stack.
+  Keep variable names synchronized with `.env.example` and the Makefile exports.
+  Store release selections in ignored `.env`; do not add current service versions
+  to stack files, README.md, or AGENTS.md. Tags match published Git tags exactly,
+  including any `v` prefix. Images must be published before deployment; changing
+  a service checkout does not publish them.
 - PostgreSQL, Dragonfly, and the broker use the `internal` overlay. Gateway and
   files join `internal` and `web`; Caddy and whoami join `web`. Only Caddy
   publishes ingress ports (80/443). Keep databases and broker APIs private.
@@ -30,12 +32,16 @@
   `RP_ID`, and `FORWARD_AUTH_ORIGINS` together. Gateway trusts private proxy
   ranges because its ports are reachable only through the Docker networks.
 - Swarm ignores `depends_on`. Preserve restart policies, the broker's bounded
-  PostgreSQL connection timeout, and its metadata-only health check. Broker
-  instance/URI endpoints can provision databases; do not use them for probes.
+  PostgreSQL connection timeout, and its cached `/readyz` health check on
+  `SERVICE_PORT` (default `8080`). Gateway and files inherit `/readyz` probes
+  from their images. Broker instance/URI endpoints can provision databases;
+  do not use them for probes.
 - `deploy.sh` runs from this directory and defaults to context `razcloud` and
-  stack `razzie-cloud`. It creates missing external `postgres_password` and
-  `dragonfly_password` secrets and preserves existing ones. Do not expose
-  credentials or remove secrets, volumes, or obsolete services incidentally.
+  stack `razzie-cloud`. The Makefile loads `.env` (overridable with `ENV_FILE`)
+  and exports settings; command-line Make assignments take precedence. The
+  script validates configuration before creating missing external
+  `postgres_password` and `dragonfly_password` secrets and preserves existing ones.
+  Do not expose credentials or remove secrets, volumes, or obsolete services incidentally.
 - Files keeps credentials and crypt recovery passwords in its broker-provisioned
   PostgreSQL database. Preserve backups; no files-specific persistent volume or
   secret is required. S3 access uses the web overlay and blocks private endpoints
@@ -48,10 +54,12 @@
 ## Verification
 
 - Validate shell changes with `bash -n deploy.sh`.
-- Validate stack changes without deployment:
-  `STACK_NAME=razzie-cloud docker stack config -c docker-stack.yml >/dev/null`.
-  Check both default image tags and environment overrides when changing image
-  interpolation. This requires the Docker CLI, not a running daemon.
+- Validate stack changes without deployment using `make config` with a populated
+  `.env`, or `docker compose --env-file .env -f docker-stack.yml config --quiet`.
+  Check required image tags and Make command-line overrides when changing image
+  interpolation. Neither check requires a running daemon. For an example-only
+  check, supply placeholder service tags through the environment with
+  `docker compose --env-file .env.example -f docker-stack.yml config --quiet`.
 - For auth/routing changes, inspect generated Caddy configuration and complete
   gateway/browser acceptance checks in an authorized test environment. Live S3
   acceptance uses dedicated disposable credentials and bucket/prefixes.

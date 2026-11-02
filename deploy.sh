@@ -20,6 +20,9 @@ ensure_secret() {
     docker --context "$DOCKER_CONTEXT" secret create "$name" -
 }
 
+# Validate required tags and stack configuration before changing the Swarm.
+docker stack config -c docker-stack.yml >/dev/null
+
 ensure_secret postgres_password
 ensure_secret dragonfly_password
 

@@ -20,7 +20,7 @@ volumes:
 
 services:
   postgres:
-    image: postgres:${POSTGRES_IMAGE_TAG:-17-alpine}
+    image: postgres:${POSTGRES_IMAGE_TAG:?Set POSTGRES_IMAGE_TAG in infra/.env}
     environment:
       POSTGRES_DB: razcloud
       POSTGRES_USER: razcloud
@@ -40,7 +40,7 @@ services:
         condition: on-failure
 
   dragonfly:
-    image: docker.dragonflydb.io/dragonflydb/dragonfly:${DRAGONFLY_IMAGE_TAG:-latest}
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:${DRAGONFLY_IMAGE_TAG:?Set DRAGONFLY_IMAGE_TAG in infra/.env}
     # Dragonfly has no *_FILE env; read the secret file and pass as arg
     command: >
       sh -c 'dragonfly
@@ -59,7 +59,7 @@ services:
 
   # DB broker that creates per-app DBs and returns URIs
   database-broker:
-    image: ghcr.io/razzie-cloud/database-broker:${DATABASE_BROKER_IMAGE_TAG:-v1.0.3}
+    image: ghcr.io/razzie-cloud/database-broker:${DATABASE_BROKER_IMAGE_TAG:?Set DATABASE_BROKER_IMAGE_TAG in infra/.env}
     depends_on:
       - postgres
       - dragonfly
@@ -73,7 +73,7 @@ services:
       DRAGONFLY_PASSWORD_FILE: /run/secrets/dragonfly_password
     # Swarm ignores depends_on; restart a broker that missed database startup.
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/v1/instances/postgres"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:$${SERVICE_PORT:-8080}/readyz || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -85,7 +85,7 @@ services:
         condition: on-failure
 
   access-gateway:
-    image: ghcr.io/razzie-cloud/access-gateway:${ACCESS_GATEWAY_IMAGE_TAG:-v1.0.0}
+    image: ghcr.io/razzie-cloud/access-gateway:${ACCESS_GATEWAY_IMAGE_TAG:?Set ACCESS_GATEWAY_IMAGE_TAG in infra/.env}
     environment:
       POSTGRES_URI_FROM: http://database-broker:8080/v1/instances/postgres/access_gateway/uri
       REDIS_URI_FROM: http://database-broker:8080/v1/instances/redis/access_gateway/uri
@@ -106,7 +106,7 @@ services:
         condition: on-failure
 
   files:
-    image: ghcr.io/razzie-cloud/files:${FILES_IMAGE_TAG:-v1.0.0}
+    image: ghcr.io/razzie-cloud/files:${FILES_IMAGE_TAG:?Set FILES_IMAGE_TAG in infra/.env}
     environment:
       POSTGRES_URI_FROM: http://database-broker:8080/v1/instances/postgres/files/uri
       ORIGIN: https://files.razzie.cloud
@@ -128,7 +128,7 @@ services:
 
   # Whoami demo app, fully hidden behind auth wall
   whoami:
-    image: traefik/whoami:${WHOAMI_IMAGE_TAG:-latest}
+    image: traefik/whoami:${WHOAMI_IMAGE_TAG:?Set WHOAMI_IMAGE_TAG in infra/.env}
     networks:
       - web
     deploy:
@@ -142,7 +142,7 @@ services:
 
   # Caddy + caddy-docker-proxy, 80/443 open to the world
   caddy-docker-proxy:
-    image: lucaslorentz/caddy-docker-proxy:${CADDY_DOCKER_PROXY_IMAGE_TAG:-2.8-alpine}
+    image: lucaslorentz/caddy-docker-proxy:${CADDY_DOCKER_PROXY_IMAGE_TAG:?Set CADDY_DOCKER_PROXY_IMAGE_TAG in infra/.env}
     networks:
       - web
     ports:

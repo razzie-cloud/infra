@@ -17,6 +17,7 @@ volumes:
   postgres_data:
   caddy_data:
   caddy_config:
+  dozzle_data:
 
 services:
   postgres:
@@ -94,7 +95,7 @@ services:
       RP_NAME: Razcloud
       # Gateway ports are private; accept client IPs from the overlay proxy.
       TRUSTED_PROXIES: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
-      FORWARD_AUTH_ORIGINS: https://files.razzie.cloud,https://whoami.razzie.cloud
+      FORWARD_AUTH_ORIGINS: https://files.razzie.cloud,https://whoami.razzie.cloud,https://logs.razzie.cloud
     networks:
       - internal
       - web
@@ -133,6 +134,37 @@ services:
         caddy_1.route.3_handle: /static/*
         caddy_1.route.3_handle.reverse_proxy: "{{upstreams 8080}}"
         caddy_1.route.4_handle.respond: "404"
+      restart_policy:
+        condition: on-failure
+
+  # One log viewer per node; Swarm mode discovers peers over the overlay.
+  dozzle:
+    image: amir20/dozzle:${DOZZLE_IMAGE_TAG:?Set DOZZLE_IMAGE_TAG in infra/.env}
+    environment:
+      DOZZLE_MODE: swarm
+      DOZZLE_AUTH_PROVIDER: forward-proxy
+      DOZZLE_AUTH_HEADER_USER: X-Auth-Request-User
+      DOZZLE_AUTH_HEADER_NAME: X-Auth-Request-Name
+      DOZZLE_ENABLE_ACTIONS: "false"
+      DOZZLE_ENABLE_SHELL: "false"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - dozzle_data:/data
+    networks:
+      - web
+    deploy:
+      mode: global
+      labels:
+        caddy: logs.razzie.cloud
+        # Strip all identity/role/filter input before copying verified identity.
+        caddy.route.0_request_header: -X-Auth-Request-User
+        caddy.route.1_request_header: -X-Auth-Request-Name
+        caddy.route.2_request_header: -Remote-*
+        # The callback and streaming APIs require the same admin policy.
+        caddy.route.3_forward_auth: access-gateway:8080
+        caddy.route.3_forward_auth.uri: /forward_auth/admin
+        caddy.route.3_forward_auth.copy_headers: X-Auth-Request-User X-Auth-Request-Name
+        caddy.route.4_reverse_proxy: "{{upstreams 8080}}"
       restart_policy:
         condition: on-failure
 

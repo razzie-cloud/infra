@@ -22,7 +22,7 @@
   including any `v` prefix. Images must be published before deployment; changing
   a service checkout does not publish them.
 - PostgreSQL, Dragonfly, and the broker use the `internal` overlay. Gateway and
-  files join `internal` and `web`; Caddy and whoami join `web`. Only Caddy
+  files join `internal` and `web`; Caddy, Dozzle, and whoami join `web`. Only Caddy
   publishes ingress ports (80/443). Keep databases and broker APIs private.
 - Caddy configuration uses service deployment labels. Keep every files management path,
   including `/_auth/callback`, behind forward auth. Strip incoming identity
@@ -31,6 +31,14 @@
   bypasses forward auth for `/s/*` and `/static/*` only, strips identity headers,
   and returns 404 for other paths. Its SHARE_ORIGIN must have a different hostname
   and is not a gateway FORWARD_AUTH_ORIGINS entry.
+- Dozzle uses a global service with `DOZZLE_MODE=swarm`, local Docker sockets,
+  and per-node `dozzle_data` volumes. Its HTTP port must stay private. Every path
+  on `logs.razzie.cloud`, including `/_auth/callback`, uses `/forward_auth/admin`.
+  Strip incoming `X-Auth-Request-User`, `X-Auth-Request-Name`, and `Remote-*` headers
+  before copying verified identity. Keep `DOZZLE_AUTH_HEADER_USER` mapped to the
+  gateway UUID header and `DOZZLE_AUTH_HEADER_NAME` to its username header; no
+  email is supplied. Keep shell/actions disabled. A read-only socket mount does
+  not limit Docker API access. `DOZZLE_IMAGE_TAG` is operator-managed in `.env`.
 - Change public DNS, TLS, Caddy host labels, gateway/files `ORIGIN`, files `SHARE_ORIGIN`, gateway
   `RP_ID`, and `FORWARD_AUTH_ORIGINS` together. Gateway trusts private proxy
   ranges because its ports are reachable only through the Docker networks.

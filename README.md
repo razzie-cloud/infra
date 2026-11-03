@@ -50,7 +50,8 @@ For another domain, update DNS, Caddy labels, `ORIGIN`, `SHARE_ORIGIN`,
 credentials and crypt passwords there; object data stays in S3.
 
 Dozzle is available at `https://logs.razzie.cloud`; create its DNS record before
-deployment and add `DOZZLE_IMAGE_TAG` from `.env.example` to existing `.env` files.
+deployment. In the parent checkout, `make latest-tags` adds the default
+`DOZZLE_IMAGE_TAG` from `.env.example` to an existing `.env` when it is missing.
 Use a gateway image with `/forward_auth/admin` support. Every Dozzle path,
 including `/_auth/callback` and streaming APIs, uses that endpoint: signed-in
 regular users receive 403, and the current admin role is checked on every request.

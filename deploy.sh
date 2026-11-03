@@ -21,7 +21,7 @@ ensure_secret() {
 }
 
 # Validate required tags and stack configuration before changing the Swarm.
-docker stack config -c docker-stack.yml >/dev/null
+docker compose -f docker-stack.yml config --quiet
 
 ensure_secret postgres_password
 ensure_secret dragonfly_password

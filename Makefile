@@ -15,7 +15,7 @@ help:
 	@printf '%s\n' 'Copy .env.example to .env and choose published service tags.' 'make config  Validate and render the Swarm stack' 'make deploy  Create missing secrets and deploy the stack'
 
 config:
-	docker stack config -c docker-stack.yml
+	docker compose -f docker-stack.yml config --quiet
 
 deploy:
 	bash ./deploy.sh

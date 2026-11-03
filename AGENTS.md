@@ -60,7 +60,8 @@
   temporarily mount the old secret volume read-only into one new instance with
   `IMPORT_SECRETS_DIR`, verify import and a database backup, then remove that
   setting and mount. Keep the old volume until verification. See the files
-  repository's `README.md` for migration details.
+  repository's `docs/reference.md#upgrading-an-existing-file-backed-installation`
+  for migration details.
 
 ## Verification
 

@@ -42,8 +42,9 @@ hostname before deploying a sharing-capable files image. Its public `/s/*` and
 `/static/*` routes bypass forward auth; all other paths return 404. Management
 on `files.razzie.cloud` remains fully protected. `SHARE_ORIGIN` must use a separate
 hostname and must not be added to `FORWARD_AUTH_ORIGINS`. Share password cookies
-are host-only. Each files replica caches share/storage metadata for 30 seconds;
-revocation is immediate locally and may take 30 seconds on other replicas.
+are host-only. Set `CAST_SHARE_TTL` in `.env` or through a Make override to adjust
+temporary Cast playback access (default `6h`, positive and at most `24h`). Each
+files replica caches share/storage metadata for 30 seconds; revocation is immediate locally and may take 30 seconds on other replicas.
 For another domain, update DNS, Caddy labels, `ORIGIN`, `SHARE_ORIGIN`,
 `RP_ID`, and `FORWARD_AUTH_ORIGINS` together. Back up PostgreSQL: files stores
 credentials and crypt passwords there; object data stays in S3.

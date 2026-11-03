@@ -112,6 +112,7 @@ services:
       POSTGRES_URI_FROM: http://database-broker:8080/v1/instances/postgres/files/uri
       ORIGIN: https://files.razzie.cloud
       SHARE_ORIGIN: https://shared-files.razzie.cloud
+      CAST_SHARE_TTL: ${CAST_SHARE_TTL:-6h}
     networks:
       - internal
       - web

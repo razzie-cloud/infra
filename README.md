@@ -6,7 +6,7 @@ Files for S3 storage, PostgreSQL, Dragonfly, administrator-only Dozzle logs, and
 whoami demo. Optional [NixOS configuration](nixos/README.md) prepares the host.
 
 To explore the platform on your own machine first, use the
-[razcloud local demo](https://github.com/razzie/razcloud#try-it-locally).
+[razcloud local demo](https://github.com/razzie-cloud/.github#try-it-locally).
 
 ## First deployment
 

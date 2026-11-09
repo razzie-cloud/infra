@@ -56,6 +56,21 @@ publishes ingress ports. Their images come from `ghcr.io/razzie`; optionally ove
 `RAZCHESS_IMAGE_TAG`, `UUID_SERVER_IMAGE_TAG`, and `GEOIP_SERVER_IMAGE_TAG` in `.env`.
 Choose RazChess and GeoIP releases with `--redis-from` support.
 
+Verify the chosen image tag exists in GHCR before deploying. Git tags and image
+tags can differ; an unpublished image leaves Swarm tasks rejected with
+`No such image` and Caddy returns HTTP 503.
+
+Caddy publishes ports 80/443 in host mode so GeoIP receives the visitor's public
+IP in `X-Forwarded-For`. The Swarm routing mesh replaces the peer address with
+an internal IP, causing GeoIP's `/` lookup to fail with `IP ... is private`.
+Point public DNS at the manager running Caddy; host-mode ports are available
+only on that node. Keep one Caddy task per ingress host.
+
+After moving DNS, certificate validation can temporarily reach the old server.
+Repeated failures can rate-limit issuance. Check Caddy logs for the retry time
+and successful issuance after DNS propagation; preserve the existing Caddy data
+volume and let its automatic retries complete.
+
 RazChess and GeoIP join both overlays and discover separate Valkey databases
 through the private broker paths `/v1/instances/valkey/razchess/uri` and
 `/v1/instances/valkey/geoip_server/uri`. UUID only joins `web` and needs no database.

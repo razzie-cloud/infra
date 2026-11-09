@@ -53,6 +53,11 @@
   bypasses forward auth for `/s/*` and `/static/*` only, strips identity headers,
   and returns 404 for other paths. Its SHARE_ORIGIN must have a different hostname
   and is not a gateway FORWARD_AUTH_ORIGINS entry.
+- Publish Caddy ports 80/443 in host mode to preserve client IPs for GeoIP.
+  Public DNS must target the manager running Caddy; other nodes do not accept
+  these ports through the Swarm routing mesh. Keep one Caddy task per ingress host.
+  Verify application image tags exist in the registry before selecting defaults;
+  a Git tag alone does not establish that its container image has been published.
 - Dozzle uses a global service with `DOZZLE_MODE=swarm`, local Docker sockets,
   and per-node `dozzle_data` volumes. Its HTTP port must stay private. Every path
   on `logs.razzie.cloud`, including `/_auth/callback`, uses `/forward_auth/admin`.

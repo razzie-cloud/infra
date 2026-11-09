@@ -15,8 +15,8 @@ ensure_secret() {
   fi
 
   echo "Creating secret '$name'..."
-  # 32 random bytes, base64-ish
-  tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32 | \
+  # Read a bounded amount of randomness so pipefail cannot trip on SIGPIPE.
+  od -An -N32 -tx1 -v /dev/urandom | tr -d ' \n' | \
     docker --context "$DOCKER_CONTEXT" secret create "$name" -
 }
 

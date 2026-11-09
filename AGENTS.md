@@ -29,6 +29,11 @@
   data and `/data/users.acl` persist in `valkey_data`; use a broker image that
   saves configured ACL files before publishing credentials. Preserve both in
   backups. Initial admin credentials are hashed only on the first volume use.
+- Gateway and broker request two replicas. Preserve their shared
+  backend configuration; no sticky sessions or application volumes are needed.
+  Use images with migration/bootstrap/provisioning coordination. Older images
+  need staged initialization; see `docs/operations.md#replicas` for upgrade and
+  availability limits. Do not impose distinct-node placement on single-node installations.
 - Caddy configuration uses service deployment labels. Keep every files management path,
   including `/_auth/callback`, behind forward auth. Strip incoming identity
   headers before authentication and copy verified identity headers from the

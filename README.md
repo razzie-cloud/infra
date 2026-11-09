@@ -37,6 +37,8 @@ make config   # Validate configuration without deploying
 make deploy   # Create missing database secrets and deploy the stack
 ```
 
+Gateway and broker run two replicas each.
+
 On first start, read the gateway's `bootstrap.token_created` log event and use its
 `bootstrap_token` at your auth URL to create the administrator and enroll a passkey.
 Open your Files URL to connect S3 storage. Back up PostgreSQL: it contains accounts,

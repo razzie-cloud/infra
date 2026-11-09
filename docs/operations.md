@@ -12,16 +12,11 @@ ignored `.env` rather than updating stack files or documentation for each releas
 In a parent razcloud checkout, `make latest-tags` discovers remote stable service
 releases and initializes or updates this file automatically.
 
-Run from this directory to validate without deploying:
+Run from this directory:
 
 ```sh
-make config
-```
-
-Deploy the selected, published images to an initialized Swarm:
-
-```sh
-make deploy
+make config   # Validate without deploying
+make deploy   # Create missing secrets and deploy
 ```
 
 The Makefile loads `.env` and exports deployment settings. Use
@@ -74,6 +69,33 @@ switch so they fetch Valkey credentials. `stack deploy` does not prune the old
 Dragonfly service; after verifying the new stack, remove that service explicitly.
 Retain its secret and data until rollback is no longer needed. Do not restore
 Dragonfly snapshots into the new Valkey volume.
+
+## Replicas
+
+Gateway and broker run two replicas each. Use published images
+with coordinated startup and provisioning. Replicas can start together and share
+backend state without sticky sessions or extra application volumes. Keep the same
+image, environment, and backend connections on both replicas. Gateway rate limits
+apply separately to each replica.
+
+When upgrading from older images, pause new-instance provisioning and avoid
+overlapping old and new initialization until all replicas support coordination.
+Schema changes must remain compatible with any code still running. Keep the
+broker's Valkey credential reservations and database ownership registry alongside
+its published metadata and ACL file;
+see the [broker reference](https://github.com/razzie-cloud/database-broker/blob/master/docs/reference.md#multiple-replicas)
+for coordination and recovery details.
+
+Both replicas may run on the same node. For host redundancy, check their placement
+and allow capacity for both processes and their connection pools. PostgreSQL,
+Valkey, and Caddy remain single instances, so backend or host failures can still
+interrupt service. Valkey persists data with AOF and an every-second fsync, and
+keeps ACLs in `/data/users.acl` on `valkey_data`. The broker saves that ACL file
+before publishing credentials; back it up with the data. Initial admin credentials
+are hashed from `valkey_password` only when the ACL file is first created. Changing
+the secret alone does not rotate an existing volume's admin password.
+
+## Dozzle
 
 Dozzle is available at `https://logs.razzie.cloud`; create its DNS record before
 deployment. In the parent checkout, `make latest-tags` adds the default

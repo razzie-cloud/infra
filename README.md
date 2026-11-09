@@ -2,8 +2,9 @@
 
 Deploy the razcloud platform with Docker Swarm and Caddy-managed HTTPS. The stack
 includes access-gateway for passkey sign-in, database-broker for provisioning,
-Files for S3 storage, PostgreSQL, Valkey, administrator-only Dozzle logs, and a
-whoami demo. Optional [NixOS configuration](nixos/README.md) prepares the host.
+Files for S3 storage, public RazChess, UUID, GeoIP and 0x40hues apps, PostgreSQL, Valkey,
+administrator-only Dozzle logs, and a whoami demo. Optional
+[NixOS configuration](nixos/README.md) prepares the host.
 
 To explore the platform on your own machine first, use the
 [razcloud local demo](https://github.com/razzie-cloud/.github#try-it-locally).
@@ -20,12 +21,16 @@ cd infra
 cp .env.example .env
 ```
 
-Set the three service image tags in `.env` to published releases. Keep image
-selections in this ignored file. In the parent checkout, `make latest-tags` can
-select stable service tags; confirm their images are published before deploying.
+Set the three platform service image tags in `.env` to published releases. Keep
+image selections in this ignored file. In the parent checkout, `make latest-tags` can
+select stable platform service tags; confirm their images are published before
+deploying. RazChess, UUID, GeoIP and 0x40hues use fixed defaults from the stack; their
+image tag variables in `.env.example` allow explicit overrides and are left
+unchanged by `make latest-tags`.
 
 The stack uses `auth.razzie.cloud`, `files.razzie.cloud`,
-`shared-files.razzie.cloud`, `logs.razzie.cloud`, and `whoami.razzie.cloud`.
+`shared-files.razzie.cloud`, `logs.razzie.cloud`, `whoami.razzie.cloud`,
+`chess.razzie.cloud`, `uuid.razzie.cloud`, `geoip.razzie.cloud`, and `hues.razzie.cloud`.
 For your domain, update DNS, Caddy labels, `ORIGIN`, `SHARE_ORIGIN`, `RP_ID`, and
 `FORWARD_AUTH_ORIGINS` together. Keep the sharing hostname separate from management
 and outside the gateway allowlist. Set `DOCKER_CONTEXT` in `.env` for your Swarm.

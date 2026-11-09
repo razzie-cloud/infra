@@ -156,6 +156,72 @@ services:
       restart_policy:
         condition: on-failure
 
+  razchess:
+    image: ghcr.io/razzie/razchess:${RAZCHESS_IMAGE_TAG:-v1.12}
+    # Discovery runs once and falls back to memory on failure. Wait for the broker.
+    entrypoint:
+      - sh
+      - -ec
+      - |
+        until wget -q -T 3 -O /dev/null http://database-broker:8080/readyz; do sleep 2; done
+        exec /razchess "$$@"
+      - --
+    command: ["--redis-from", "http://database-broker:8080/v1/instances/valkey/razchess/uri"]
+    networks:
+      - internal
+      - web
+    deploy:
+      # Live game sessions are held in memory; Redis provides persistence.
+      replicas: 1
+      labels:
+        caddy: chess.razzie.cloud
+        caddy.reverse_proxy: "{{upstreams 8080}}"
+      restart_policy:
+        condition: on-failure
+
+  uuid-server:
+    image: ghcr.io/razzie/uuid-server:${UUID_SERVER_IMAGE_TAG:-v1.1}
+    networks:
+      - web
+    deploy:
+      labels:
+        caddy: uuid.razzie.cloud
+        caddy.reverse_proxy: "{{upstreams 8080}}"
+      restart_policy:
+        condition: on-failure
+
+  geoip-server:
+    image: ghcr.io/razzie/geoip-server:${GEOIP_SERVER_IMAGE_TAG:-v1.5}
+    # Discovery/cache initialization runs once; avoid starting before the broker.
+    entrypoint:
+      - sh
+      - -ec
+      - |
+        until wget -q -T 3 -O /dev/null http://database-broker:8080/readyz; do sleep 2; done
+        exec /geoip-server "$$@"
+      - --
+    command: ["--redis-from", "http://database-broker:8080/v1/instances/valkey/geoip_server/uri"]
+    networks:
+      - internal
+      - web
+    deploy:
+      labels:
+        caddy: geoip.razzie.cloud
+        caddy.reverse_proxy: "{{upstreams 8080}}"
+      restart_policy:
+        condition: on-failure
+
+  0x40hues:
+    image: ghcr.io/razzie/0x40hues:${HUES_IMAGE_TAG:-v1.5}
+    networks:
+      - web
+    deploy:
+      labels:
+        caddy: hues.razzie.cloud
+        caddy.reverse_proxy: "{{upstreams 8080}}"
+      restart_policy:
+        condition: on-failure
+
   # One log viewer per node; Swarm mode discovers peers over the overlay.
   dozzle:
     image: amir20/dozzle:${DOZZLE_IMAGE_TAG:?Set DOZZLE_IMAGE_TAG in infra/.env}

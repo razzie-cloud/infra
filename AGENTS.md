@@ -14,16 +14,20 @@
 
 ## Stack invariants
 
-- `docker-stack.yml` includes all services; no files overlay is needed. Image
-  tags are required environment variables with no version defaults in the stack.
+- `docker-stack.yml` includes all services; no files overlay is needed. Platform
+  and third-party image tags are required environment variables. The inactive
+  RazChess, UUID, GeoIP, and 0x40hues apps use fixed stack defaults with optional overrides;
+  `make latest-tags` must not query their remotes or replace those overrides.
   Keep variable names synchronized with `.env.example` and the Makefile exports.
-  Store release selections in ignored `.env`; do not add current service versions
-  to stack files, README.md, or AGENTS.md. Tags match published Git tags exactly,
+  Store other release selections in ignored `.env`; keep other current versions
+  out of stack files and all current versions out of README.md and AGENTS.md.
+  Tags match published Git tags exactly,
   including any `v` prefix. Images must be published before deployment; changing
   a service checkout does not publish them.
-- PostgreSQL, Valkey, and the broker use the `internal` overlay. Gateway and
-  files join `internal` and `web`; Caddy, Dozzle, and whoami join `web`. Only Caddy
-  publishes ingress ports (80/443). Keep databases and broker APIs private.
+- PostgreSQL, Valkey, and the broker use the `internal` overlay. Gateway, files,
+  RazChess, and GeoIP join `internal` and `web`; Caddy, Dozzle, whoami, UUID, and
+  0x40hues join `web`. Only Caddy publishes ingress ports (80/443). Keep databases and
+  broker APIs private.
 - Valkey requires 9.1.0+ with database ACLs and runs standalone. Database 0
   stores broker metadata; applications use the other 15 databases. Both AOF
   data and `/data/users.acl` persist in `valkey_data`; use a broker image that
@@ -34,6 +38,14 @@
   Use images with migration/bootstrap/provisioning coordination. Older images
   need staged initialization; see `docs/operations.md#replicas` for upgrade and
   availability limits. Do not impose distinct-node placement on single-node installations.
+- RazChess, UUID, GeoIP, and 0x40hues retain public routes without forward auth. RazChess
+  stays at one replica because active sessions live in memory. RazChess and
+  GeoIP use `--redis-from` with separate broker-managed Valkey instances; their
+  Alpine entrypoints wait for broker `/readyz` before one-time discovery. Keep
+  credentials out of arguments and environment files. UUID and 0x40hues need no database.
+  The default RazChess loader uses `SCAN`, compatible with restricted Valkey
+  ACLs. Older `KEYS` loaders cannot restore sessions. Preserve restricted ACLs.
+  See `docs/operations.md#razchess-uuid-and-geoip`.
 - Caddy configuration uses service deployment labels. Keep every files management path,
   including `/_auth/callback`, behind forward auth. Strip incoming identity
   headers before authentication and copy verified identity headers from the

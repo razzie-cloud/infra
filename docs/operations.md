@@ -5,12 +5,14 @@ See the [README](../README.md) for prerequisites and first deployment, and
 
 ## Image selection and deployment
 
-Copy `.env.example` to `.env` and set the three service image tags to published
-releases. The example contains third-party image tags and operator defaults;
-the stack requires every image tag explicitly. Keep release selections in the
-ignored `.env` rather than updating stack files or documentation for each release.
-In a parent razcloud checkout, `make latest-tags` discovers remote stable service
-releases and initializes or updates this file automatically.
+Copy `.env.example` to `.env` and set the three platform service image tags to
+published releases. The example contains third-party image tags and operator defaults;
+RazChess, UUID, GeoIP and 0x40hues have fixed defaults with optional image tag overrides.
+Other image tags must be supplied explicitly. Keep platform release selections
+in the ignored `.env` rather than updating stack files or documentation for each release.
+In a parent razcloud checkout, `make latest-tags` discovers remote stable platform
+releases and initializes or updates this file automatically. It does not query
+RazChess, UUID, GeoIP or 0x40hues remotes or change their overrides.
 
 Run from this directory:
 
@@ -44,6 +46,44 @@ files replica caches share/storage metadata for 30 seconds; revocation is immedi
 For another domain, update DNS, Caddy labels, `ORIGIN`, `SHARE_ORIGIN`,
 `RP_ID`, and `FORWARD_AUTH_ORIGINS` together. Back up PostgreSQL: files stores
 credentials and crypt passwords there; object data stays in S3.
+
+## RazChess, UUID and GeoIP
+
+The public services retain their legacy hostnames: `chess.razzie.cloud`,
+`uuid.razzie.cloud`, and `geoip.razzie.cloud`. They proxy to port 8080 without
+gateway authentication and are outside `FORWARD_AUTH_ORIGINS`. Only Caddy
+publishes ingress ports. Their images come from `ghcr.io/razzie`; optionally override
+`RAZCHESS_IMAGE_TAG`, `UUID_SERVER_IMAGE_TAG`, and `GEOIP_SERVER_IMAGE_TAG` in `.env`.
+Choose RazChess and GeoIP releases with `--redis-from` support.
+
+RazChess and GeoIP join both overlays and discover separate Valkey databases
+through the private broker paths `/v1/instances/valkey/razchess/uri` and
+`/v1/instances/valkey/geoip_server/uri`. UUID only joins `web` and needs no database.
+No application password, new secret, or application volume is required.
+The entrypoint waits for broker `/readyz` before invoking each Redis client's
+one-time discovery; Swarm does not order service startup. If discovery or the
+initial Redis connection still fails, these apps can continue without persistence
+or caching. Check startup logs and restart affected tasks once the backend is
+healthy. RazChess runs one replica because active game sessions live in memory.
+
+The default RazChess release enumerates saved sessions with `SCAN` in
+[`LoadSessions`](https://github.com/razzie/razchess/blob/v1.12/pkg/razchess/db.go),
+which works with the broker's restricted Valkey ACLs. Older releases using
+`KEYS` cannot restore sessions under that policy. Preserve restricted ACLs when
+overriding the image tag.
+
+The stack provisions new databases; it does not copy legacy Redis data. If old
+chess sessions must be retained, arrange a separate data migration before routing
+traffic to this stack. GeoIP can rebuild its cache. Existing legacy containers
+and DNS records are untouched by configuration changes here.
+
+## 0x40hues
+
+0x40hues retains the public `hues.razzie.cloud` hostname, proxying to port 8080
+without gateway authentication. It joins only `web` and needs no database,
+secret, or persistent volume. Its image comes from `ghcr.io/razzie/0x40hues`;
+`HUES_IMAGE_TAG` optionally overrides the fixed stack default. `make latest-tags`
+does not query its remote or change the override.
 
 ## Switching from Dragonfly to Valkey
 

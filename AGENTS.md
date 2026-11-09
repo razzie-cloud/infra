@@ -3,7 +3,7 @@
 ## Scope and workflow
 
 - This repository owns the Swarm stack, deployment script, and NixOS host
-  configuration. In the razcloud parent checkout it is a Git submodule with
+  configuration. In the Razzie Cloud parent checkout it is a Git submodule with
   its own history; commit infrastructure changes here before updating the
   parent's pinned commit. Keep service source changes in their owning repos.
 - Inspect `git status`, staged and unstaged diffs, and untracked files before
@@ -25,9 +25,15 @@
   including any `v` prefix. Images must be published before deployment; changing
   a service checkout does not publish them.
 - PostgreSQL, Valkey, and the broker use the `internal` overlay. Gateway, files,
-  RazChess, and GeoIP join `internal` and `web`; Caddy, Dozzle, whoami, UUID, and
-  0x40hues join `web`. Only Caddy publishes ingress ports (80/443). Keep databases and
-  broker APIs private.
+  RazChess, and GeoIP join `internal` and `web`; Caddy, Dozzle, whoami, UUID,
+  0x40hues, and the public landing service join `web`. Only Caddy publishes
+  ingress ports (80/443). Keep databases and broker APIs private.
+- `landing/` owns the static homepage image. Build and publish
+  `ghcr.io/razzie-cloud/landing` before selecting `LANDING_IMAGE_TAG` in `.env`;
+  export it in the Makefile. Swarm serves it at `razzie.cloud` without auth.
+  Copy only the page, styles, and assets into the image; do not publish previews
+  or repository documentation. Local Compose builds the same Dockerfile with
+  local Files/auth origins and serves it through Caddy at `localhost`.
 - Valkey requires 9.1.0+ with database ACLs and runs standalone. Database 0
   stores broker metadata; applications use the other 15 databases. Both AOF
   data and `/data/users.acl` persist in `valkey_data`; use a broker image that

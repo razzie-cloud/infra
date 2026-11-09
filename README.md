@@ -1,13 +1,17 @@
-# Razcloud infrastructure
+# Razzie Cloud infrastructure
 
-Deploy the razcloud platform with Docker Swarm and Caddy-managed HTTPS. The stack
+Deploy the Razzie Cloud platform with Docker Swarm and Caddy-managed HTTPS. The stack
 includes access-gateway for passkey sign-in, database-broker for provisioning,
 Files for S3 storage, public RazChess, UUID, GeoIP and 0x40hues apps, PostgreSQL, Valkey,
 administrator-only Dozzle logs, and a whoami demo. Optional
 [NixOS configuration](nixos/README.md) prepares the host.
 
 To explore the platform on your own machine first, use the
-[razcloud local demo](https://github.com/razzie-cloud/.github#try-it-locally).
+[Razzie Cloud local demo](https://github.com/razzie-cloud/.github#try-it-locally).
+
+The public [landing page](landing/README.md) is served at `razzie.cloud`, with
+links to GitHub, Files, and sign-in. Its assets are packaged in a static Caddy
+image; build and publish it before the first deployment and after page changes.
 
 ## First deployment
 
@@ -24,11 +28,14 @@ cp .env.example .env
 Set the three platform service image tags in `.env` to published releases. Keep
 image selections in this ignored file. In the parent checkout, `make latest-tags` can
 select stable platform service tags; confirm their images are published before
-deploying. RazChess, UUID, GeoIP and 0x40hues use fixed defaults from the stack; their
+deploying. Also set `LANDING_IMAGE_TAG` to a published homepage image built from
+`landing/`; see its [build instructions](landing/README.md#swarm-image).
+`make latest-tags` preserves that selection and only discovers the three Go service tags.
+RazChess, UUID, GeoIP and 0x40hues use fixed defaults from the stack; their
 image tag variables in `.env.example` allow explicit overrides and are left
 unchanged by `make latest-tags`.
 
-The stack uses `auth.razzie.cloud`, `files.razzie.cloud`,
+The stack uses `razzie.cloud`, `auth.razzie.cloud`, `files.razzie.cloud`,
 `shared-files.razzie.cloud`, `logs.razzie.cloud`, `whoami.razzie.cloud`,
 `chess.razzie.cloud`, `uuid.razzie.cloud`, `geoip.razzie.cloud`, and `hues.razzie.cloud`.
 For your domain, update DNS, Caddy labels, `ORIGIN`, `SHARE_ORIGIN`, `RP_ID`, and

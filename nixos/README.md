@@ -1,6 +1,6 @@
 # NixOS host configuration
 
-Optional host setup for razcloud: SSH access for a `deploy` user, Docker, a
+Optional host setup for Razzie Cloud: SSH access for a `deploy` user, Docker, a
 firewall, automatic upgrades, and a conditional reboot timer. Deploying the
 application stack is a separate step in the [infra quickstart](../README.md).
 

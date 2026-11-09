@@ -1,0 +1,6 @@
+*
+!Caddyfile
+!index.html
+!landing.css
+!assets/
+!assets/**

@@ -21,6 +21,17 @@ volumes:
   dozzle_data:
 
 services:
+  landing:
+    image: ghcr.io/razzie-cloud/landing:${LANDING_IMAGE_TAG:?Set LANDING_IMAGE_TAG in infra/.env}
+    networks:
+      - web
+    deploy:
+      labels:
+        caddy: razzie.cloud
+        caddy.reverse_proxy: "{{upstreams 8080}}"
+      restart_policy:
+        condition: on-failure
+
   postgres:
     image: postgres:${POSTGRES_IMAGE_TAG:?Set POSTGRES_IMAGE_TAG in infra/.env}
     environment:
@@ -109,7 +120,7 @@ services:
       REDIS_URI_FROM: http://database-broker:8080/v1/instances/valkey/access_gateway/uri
       ORIGIN: https://auth.razzie.cloud
       RP_ID: auth.razzie.cloud
-      RP_NAME: Razcloud
+      RP_NAME: Razzie Cloud
       # Gateway ports are private; accept client IPs from the overlay proxy.
       TRUSTED_PROXIES: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
       FORWARD_AUTH_ORIGINS: https://files.razzie.cloud,https://whoami.razzie.cloud,https://logs.razzie.cloud

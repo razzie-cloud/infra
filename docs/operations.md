@@ -10,9 +10,14 @@ published releases. The example contains third-party image tags and operator def
 RazChess, UUID, GeoIP and 0x40hues have fixed defaults with optional image tag overrides.
 Other image tags must be supplied explicitly. Keep platform release selections
 in the ignored `.env` rather than updating stack files or documentation for each release.
-In a parent razcloud checkout, `make latest-tags` discovers remote stable platform
+Set `LANDING_IMAGE_TAG` to a published `ghcr.io/razzie-cloud/landing` image built
+from this repository's `landing/` directory. The [landing-page guide](../landing/README.md#swarm-image)
+covers building and publishing it. Page and logo updates need a new image tag;
+Swarm does not build images or read this checkout's assets from a bind mount.
+In a parent Razzie Cloud checkout, `make latest-tags` discovers remote stable platform
 releases and initializes or updates this file automatically. It does not query
 RazChess, UUID, GeoIP or 0x40hues remotes or change their overrides.
+It also leaves `LANDING_IMAGE_TAG` under operator control.
 
 Run from this directory:
 
@@ -34,7 +39,12 @@ existing external database secrets, and creates missing ones before deploying.
 When called directly, it needs exported or inline environment settings: Swarm
 does not load `.env` automatically. One stack file includes all services.
 
-Public routes are `auth.razzie.cloud`, `files.razzie.cloud`,
+The public homepage at `razzie.cloud` proxies to the landing service on port 8080
+without forward authentication. Point the apex DNS record at the Caddy ingress
+host; Caddy manages its HTTPS certificate. It only joins the web overlay and has
+no database, secret, volume, or published port of its own.
+
+Other routes are `auth.razzie.cloud`, `files.razzie.cloud`,
 `shared-files.razzie.cloud`, `logs.razzie.cloud`, and `whoami.razzie.cloud`. Create DNS for the share
 hostname before deploying a sharing-capable files image. Its public `/s/*` and
 `/static/*` routes bypass forward auth; all other paths return 404. Management

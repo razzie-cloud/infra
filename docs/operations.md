@@ -50,6 +50,31 @@ For another domain, update DNS, Caddy labels, `ORIGIN`, `SHARE_ORIGIN`,
 `RP_ID`, and `FORWARD_AUTH_ORIGINS` together. Back up PostgreSQL: files stores
 credentials and crypt passwords there; object data stays in S3.
 
+## Switching from Dragonfly to Valkey
+
+Select `VALKEY_IMAGE_TAG` from `.env.example` (9.1.0+ is required) and remove the
+obsolete `DRAGONFLY_IMAGE_TAG` setting. Publish a broker image with Valkey support
+and automatic `ACL SAVE` for configured ACL files, then select its tag in `.env`.
+Validate with `make config` before an explicitly authorized deployment.
+
+Deployment creates a separate `valkey_password` secret and `valkey_data` volume;
+it keeps the old Dragonfly secret and volume. The gateway now discovers its URI
+through `/v1/instances/valkey/access_gateway/uri`, while the broker uses database 0
+for metadata and allocates from the other 15 databases. Increase `--databases` at
+server startup if needed. Keep Valkey standalone and dedicated to this broker.
+
+Valkey persists data with AOF and an every-second fsync, with ACLs stored
+separately in `/data/users.acl`. Back up both together. The initial admin password
+is hashed from `valkey_password` only when the ACL file is first created; changing
+the secret alone does not rotate an existing volume's password.
+
+Existing sessions are not migrated: users sign in again with their existing
+PostgreSQL-backed accounts and passkeys. Restart both gateway replicas during the
+switch so they fetch Valkey credentials. `stack deploy` does not prune the old
+Dragonfly service; after verifying the new stack, remove that service explicitly.
+Retain its secret and data until rollback is no longer needed. Do not restore
+Dragonfly snapshots into the new Valkey volume.
+
 Dozzle is available at `https://logs.razzie.cloud`; create its DNS record before
 deployment. In the parent checkout, `make latest-tags` adds the default
 `DOZZLE_IMAGE_TAG` from `.env.example` to an existing `.env` when it is missing.

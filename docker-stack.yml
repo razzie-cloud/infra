@@ -3,7 +3,7 @@ version: "3.9"
 secrets:
   postgres_password:
     external: true
-  dragonfly_password:
+  valkey_password:
     external: true
 
 networks:
@@ -15,6 +15,7 @@ networks:
 
 volumes:
   postgres_data:
+  valkey_data:
   caddy_data:
   caddy_config:
   dozzle_data:
@@ -40,17 +41,32 @@ services:
       restart_policy:
         condition: on-failure
 
-  dragonfly:
-    image: docker.dragonflydb.io/dragonflydb/dragonfly:${DRAGONFLY_IMAGE_TAG:?Set DRAGONFLY_IMAGE_TAG in infra/.env}
-    # Dragonfly has no *_FILE env; read the secret file and pass as arg
-    command: >
-      sh -c 'dragonfly
-             --requirepass "$$(cat /run/secrets/dragonfly_password)"
-             --bind 0.0.0.0:6379'
+  valkey:
+    image: valkey/valkey:${VALKEY_IMAGE_TAG:?Set VALKEY_IMAGE_TAG in infra/.env (Valkey 9.1.0+)}
+    command:
+      - sh
+      - -ec
+      - |
+        umask 077
+        if [ ! -s /data/users.acl ]; then
+          password_hash="$$(sha256sum /run/secrets/valkey_password | cut -d ' ' -f 1)"
+          printf 'user default on #%s ~* &* +@all\n' "$$password_hash" > /data/users.acl
+        fi
+        exec docker-entrypoint.sh valkey-server --bind 0.0.0.0 --port 6379 --databases 16 \
+          --dir /data --appendonly yes --appendfsync everysec --aclfile /data/users.acl
+    stop_grace_period: 60s
     secrets:
-      - dragonfly_password
+      - valkey_password
     networks:
       - internal
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "VALKEYCLI_AUTH=$$(cat /run/secrets/valkey_password) valkey-cli -e -h 127.0.0.1 ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
     deploy:
       placement:
         constraints:
@@ -63,15 +79,15 @@ services:
     image: ghcr.io/razzie-cloud/database-broker:${DATABASE_BROKER_IMAGE_TAG:?Set DATABASE_BROKER_IMAGE_TAG in infra/.env}
     depends_on:
       - postgres
-      - dragonfly
+      - valkey
     secrets:
       - postgres_password
-      - dragonfly_password
+      - valkey_password
     environment:
       POSTGRES_URI: postgresql://razcloud@postgres:5432/razcloud?connect_timeout=5
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-      DRAGONFLY_URI: redis://dragonfly:6379
-      DRAGONFLY_PASSWORD_FILE: /run/secrets/dragonfly_password
+      VALKEY_URI: redis://valkey:6379/0
+      VALKEY_PASSWORD_FILE: /run/secrets/valkey_password
     # Swarm ignores depends_on; restart a broker that missed database startup.
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:$${SERVICE_PORT:-8080}/readyz || exit 1"]
@@ -89,7 +105,7 @@ services:
     image: ghcr.io/razzie-cloud/access-gateway:${ACCESS_GATEWAY_IMAGE_TAG:?Set ACCESS_GATEWAY_IMAGE_TAG in infra/.env}
     environment:
       POSTGRES_URI_FROM: http://database-broker:8080/v1/instances/postgres/access_gateway/uri
-      REDIS_URI_FROM: http://database-broker:8080/v1/instances/redis/access_gateway/uri
+      REDIS_URI_FROM: http://database-broker:8080/v1/instances/valkey/access_gateway/uri
       ORIGIN: https://auth.razzie.cloud
       RP_ID: auth.razzie.cloud
       RP_NAME: Razcloud

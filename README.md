@@ -2,7 +2,7 @@
 
 Deploy the razcloud platform with Docker Swarm and Caddy-managed HTTPS. The stack
 includes access-gateway for passkey sign-in, database-broker for provisioning,
-Files for S3 storage, PostgreSQL, Dragonfly, administrator-only Dozzle logs, and a
+Files for S3 storage, PostgreSQL, Valkey, administrator-only Dozzle logs, and a
 whoami demo. Optional [NixOS configuration](nixos/README.md) prepares the host.
 
 To explore the platform on your own machine first, use the

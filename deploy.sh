@@ -24,7 +24,7 @@ ensure_secret() {
 docker compose -f docker-stack.yml config --quiet
 
 ensure_secret postgres_password
-ensure_secret dragonfly_password
+ensure_secret valkey_password
 
 echo "Deploying stack '$STACK_NAME' to context '$DOCKER_CONTEXT'..."
 docker --context "$DOCKER_CONTEXT" stack deploy -c docker-stack.yml "$STACK_NAME"

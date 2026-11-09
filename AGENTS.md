@@ -21,9 +21,14 @@
   to stack files, README.md, or AGENTS.md. Tags match published Git tags exactly,
   including any `v` prefix. Images must be published before deployment; changing
   a service checkout does not publish them.
-- PostgreSQL, Dragonfly, and the broker use the `internal` overlay. Gateway and
+- PostgreSQL, Valkey, and the broker use the `internal` overlay. Gateway and
   files join `internal` and `web`; Caddy, Dozzle, and whoami join `web`. Only Caddy
   publishes ingress ports (80/443). Keep databases and broker APIs private.
+- Valkey requires 9.1.0+ with database ACLs and runs standalone. Database 0
+  stores broker metadata; applications use the other 15 databases. Both AOF
+  data and `/data/users.acl` persist in `valkey_data`; use a broker image that
+  saves configured ACL files before publishing credentials. Preserve both in
+  backups. Initial admin credentials are hashed only on the first volume use.
 - Caddy configuration uses service deployment labels. Keep every files management path,
   including `/_auth/callback`, behind forward auth. Strip incoming identity
   headers before authentication and copy verified identity headers from the
@@ -51,7 +56,7 @@
   stack `razzie-cloud`. The Makefile loads `.env` (overridable with `ENV_FILE`)
   and exports settings; command-line Make assignments take precedence. The
   script validates configuration before creating missing external
-  `postgres_password` and `dragonfly_password` secrets and preserves existing ones.
+  `postgres_password` and `valkey_password` secrets and preserves existing ones.
   Do not expose credentials or remove secrets, volumes, or obsolete services incidentally.
 - Files keeps credentials and crypt recovery passwords in its broker-provisioned
   PostgreSQL database. Preserve backups; no files-specific persistent volume or

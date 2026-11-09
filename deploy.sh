@@ -27,4 +27,4 @@ ensure_secret postgres_password
 ensure_secret valkey_password
 
 echo "Deploying stack '$STACK_NAME' to context '$DOCKER_CONTEXT'..."
-docker --context "$DOCKER_CONTEXT" stack deploy -c docker-stack.yml "$STACK_NAME"
+docker --context "$DOCKER_CONTEXT" stack deploy --with-registry-auth -c docker-stack.yml "$STACK_NAME"

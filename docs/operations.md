@@ -36,6 +36,9 @@ daemon using `docker compose --env-file .env -f docker-stack.yml config --quiet`
 `deploy.sh` defaults to Docker context `razcloud` and stack `razzie-cloud`;
 override with `DOCKER_CONTEXT` and `STACK_NAME`. It validates the stack, preserves
 existing external database secrets, and creates missing ones before deploying.
+It forwards the local Docker registry login to Swarm with `--with-registry-auth`,
+so nodes can pull private images such as the landing package. Authenticate to
+GHCR with an account that can pull the selected images before deploying.
 When called directly, it needs exported or inline environment settings: Swarm
 does not load `.env` automatically. One stack file includes all services.
 

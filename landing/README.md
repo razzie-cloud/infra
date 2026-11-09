@@ -61,7 +61,8 @@ docker push "ghcr.io/razzie-cloud/landing:$landing_tag"
 
 Set `LANDING_IMAGE_TAG` in infra's ignored `.env` to that tag, run `make config`,
 then use the normal `make deploy` workflow when ready. The registry image must
-be pullable by the Swarm nodes. `make latest-tags` selects only the three Go
+be pullable by the Swarm nodes. For a private package, log in to GHCR locally;
+the deployment script forwards that login to Swarm. `make latest-tags` selects only the three Go
 services and preserves your landing tag. Point the apex DNS record at the Caddy
 ingress host; the existing proxy handles HTTPS. No gateway allowlist entry or
 database is needed for the homepage.

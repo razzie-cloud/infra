@@ -85,6 +85,7 @@
   and exports settings; command-line Make assignments take precedence. The
   script validates configuration before creating missing external
   `postgres_password` and `valkey_password` secrets and preserves existing ones.
+  It passes `--with-registry-auth` so nodes can pull operator-selected private images.
   Do not expose credentials or remove secrets, volumes, or obsolete services incidentally.
 - Files keeps credentials and crypt recovery passwords in its broker-provisioned
   PostgreSQL database. Preserve backups; no files-specific persistent volume or

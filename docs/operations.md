@@ -56,8 +56,15 @@ hostname and must not be added to `FORWARD_AUTH_ORIGINS`. Share password cookies
 are host-only. Set `CAST_SHARE_TTL` in `.env` or through a Make override to adjust
 temporary Cast playback access (default `6h`, positive and at most `24h`). Each
 files replica caches share/storage metadata for 30 seconds; revocation is immediate locally and may take 30 seconds on other replicas.
-For another domain, update DNS, Caddy labels, `ORIGIN`, `SHARE_ORIGIN`,
-`RP_ID`, and `FORWARD_AUTH_ORIGINS` together. Back up PostgreSQL: files stores
+Set `DOMAIN` in `.env` (default `razzie.cloud`) to change the apex and every service
+subdomain together. Caddy labels, `ORIGIN`, `SHARE_ORIGIN`, `RP_ID`,
+`FORWARD_AUTH_ORIGINS`, and the landing page links and metadata follow it.
+Use a hostname without a scheme, port, or trailing slash, and configure DNS for
+the apex and all service subdomains. A Make override such as
+`make config DOMAIN=example.com` takes precedence over `.env`. Existing passkeys
+are bound to the previous relying-party ID; changing domains requires enrollment
+for the new auth hostname.
+Back up PostgreSQL: files stores
 credentials and crypt passwords there; object data stays in S3.
 
 ## RazChess, UUID and GeoIP

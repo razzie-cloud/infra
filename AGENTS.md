@@ -75,6 +75,9 @@
 - Change public DNS, TLS, Caddy host labels, gateway/files `ORIGIN`, files `SHARE_ORIGIN`, gateway
   `RP_ID`, and `FORWARD_AUTH_ORIGINS` together. Gateway trusts private proxy
   ranges because its ports are reachable only through the Docker networks.
+  `DOMAIN` (default `razzie.cloud`) drives every public hostname and auth origin;
+  export it in the Makefile. The landing image renders links and metadata from
+  this setting at startup; preserve local Compose's build-time origin overrides.
 - Swarm ignores `depends_on`. Preserve restart policies, the broker's bounded
   PostgreSQL connection timeout, and its cached `/readyz` health check on
   `SERVICE_PORT` (default `8080`). Gateway and files inherit `/readyz` probes

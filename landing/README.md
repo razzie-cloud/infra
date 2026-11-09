@@ -48,8 +48,9 @@ the source HTML's production service links instead.
 
 Swarm routes `https://razzie.cloud` publicly to `landing:8080`. It uses a published
 image rather than a checkout bind mount, so tasks can run on any node. The image
-contains only `index.html`, `landing.css`, and `assets/`; previews and repository
-documentation are excluded. The Pico license remains with the served assets.
+serves only `index.html`, `landing.css`, and `assets/`; its HTML template and startup
+script stay outside the web root. Previews and repository documentation are
+excluded. The Pico license remains with the served assets.
 
 Build and publish from the infra checkout using a new tag for each page update:
 
@@ -67,10 +68,13 @@ services and preserves your landing tag. Point the apex DNS record at the Caddy
 ingress host; the existing proxy handles HTTPS. No gateway allowlist entry or
 database is needed for the homepage.
 
-The Dockerfile defaults to the production Files/auth origins. For another domain,
-build with `--build-arg FILES_ORIGIN=https://files.example.com` and
-`--build-arg AUTH_ORIGIN=https://auth.example.com`, and update the source canonical
-and Open Graph URLs along with the stack's domain configuration.
+Set `DOMAIN=example.com` in infra's `.env` to use another domain. The stack passes
+it to the container, which renders Files/auth links, their display hostnames, and
+canonical/Open Graph URLs at startup. The default is `razzie.cloud`; the same image
+works for any domain without rebuilding. Publish an image containing this startup
+script before using this setting with an older deployment.
+The Dockerfile's `FILES_ORIGIN` and `AUTH_ORIGIN` build arguments remain available
+for the local Compose stack's HTTP origins and shared port.
 
 `assets/razzie-cloud-logo.png` is an exact copy of the parent brand master;
 the Pico license is retained beside the vendored CSS.

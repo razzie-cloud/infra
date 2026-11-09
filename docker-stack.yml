@@ -23,11 +23,13 @@ volumes:
 services:
   landing:
     image: ghcr.io/razzie-cloud/landing:${LANDING_IMAGE_TAG:?Set LANDING_IMAGE_TAG in infra/.env}
+    environment:
+      DOMAIN: ${DOMAIN:-razzie.cloud}
     networks:
       - web
     deploy:
       labels:
-        caddy: razzie.cloud
+        caddy: ${DOMAIN:-razzie.cloud}
         caddy.reverse_proxy: "{{upstreams 8080}}"
       restart_policy:
         condition: on-failure
@@ -118,19 +120,19 @@ services:
     environment:
       POSTGRES_URI_FROM: http://database-broker:8080/v1/instances/postgres/access_gateway/uri
       REDIS_URI_FROM: http://database-broker:8080/v1/instances/valkey/access_gateway/uri
-      ORIGIN: https://auth.razzie.cloud
-      RP_ID: auth.razzie.cloud
+      ORIGIN: https://auth.${DOMAIN:-razzie.cloud}
+      RP_ID: auth.${DOMAIN:-razzie.cloud}
       RP_NAME: Razzie Cloud
       # Gateway ports are private; accept client IPs from the overlay proxy.
       TRUSTED_PROXIES: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
-      FORWARD_AUTH_ORIGINS: https://files.razzie.cloud,https://whoami.razzie.cloud,https://logs.razzie.cloud
+      FORWARD_AUTH_ORIGINS: https://files.${DOMAIN:-razzie.cloud},https://whoami.${DOMAIN:-razzie.cloud},https://logs.${DOMAIN:-razzie.cloud}
     networks:
       - internal
       - web
     deploy:
       replicas: 2
       labels:
-        caddy: auth.razzie.cloud
+        caddy: auth.${DOMAIN:-razzie.cloud}
         caddy.reverse_proxy: "{{upstreams 8080}}"
       restart_policy:
         condition: on-failure
@@ -139,15 +141,15 @@ services:
     image: ghcr.io/razzie-cloud/files:${FILES_IMAGE_TAG:?Set FILES_IMAGE_TAG in infra/.env}
     environment:
       POSTGRES_URI_FROM: http://database-broker:8080/v1/instances/postgres/files/uri
-      ORIGIN: https://files.razzie.cloud
-      SHARE_ORIGIN: https://shared-files.razzie.cloud
+      ORIGIN: https://files.${DOMAIN:-razzie.cloud}
+      SHARE_ORIGIN: https://shared-files.${DOMAIN:-razzie.cloud}
       CAST_SHARE_TTL: ${CAST_SHARE_TTL:-6h}
     networks:
       - internal
       - web
     deploy:
       labels:
-        caddy: files.razzie.cloud
+        caddy: files.${DOMAIN:-razzie.cloud}
         # Keep every path, including /_auth/callback, behind forward auth.
         caddy.route.0_request_header: -X-Auth-Request-User
         caddy.route.1_request_header: -X-Auth-Request-Name
@@ -156,7 +158,7 @@ services:
         caddy.route.2_forward_auth.copy_headers: X-Auth-Request-User X-Auth-Request-Name
         caddy.route.3_reverse_proxy: "{{upstreams 8080}}"
         # Public capabilities use a separate host; management stays behind SSO.
-        caddy_1: shared-files.razzie.cloud
+        caddy_1: shared-files.${DOMAIN:-razzie.cloud}
         caddy_1.route.0_request_header: -X-Auth-Request-User
         caddy_1.route.1_request_header: -X-Auth-Request-Name
         caddy_1.route.2_handle: /s/*
@@ -185,7 +187,7 @@ services:
       # Live game sessions are held in memory; Redis provides persistence.
       replicas: 1
       labels:
-        caddy: chess.razzie.cloud
+        caddy: chess.${DOMAIN:-razzie.cloud}
         caddy.reverse_proxy: "{{upstreams 8080}}"
       restart_policy:
         condition: on-failure
@@ -196,7 +198,7 @@ services:
       - web
     deploy:
       labels:
-        caddy: uuid.razzie.cloud
+        caddy: uuid.${DOMAIN:-razzie.cloud}
         caddy.reverse_proxy: "{{upstreams 8080}}"
       restart_policy:
         condition: on-failure
@@ -217,7 +219,7 @@ services:
       - web
     deploy:
       labels:
-        caddy: geoip.razzie.cloud
+        caddy: geoip.${DOMAIN:-razzie.cloud}
         caddy.reverse_proxy: "{{upstreams 8080}}"
       restart_policy:
         condition: on-failure
@@ -228,7 +230,7 @@ services:
       - web
     deploy:
       labels:
-        caddy: hues.razzie.cloud
+        caddy: hues.${DOMAIN:-razzie.cloud}
         caddy.reverse_proxy: "{{upstreams 8080}}"
       restart_policy:
         condition: on-failure
@@ -251,7 +253,7 @@ services:
     deploy:
       mode: global
       labels:
-        caddy: logs.razzie.cloud
+        caddy: logs.${DOMAIN:-razzie.cloud}
         # Strip all identity/role/filter input before copying verified identity.
         caddy.route.0_request_header: -X-Auth-Request-User
         caddy.route.1_request_header: -X-Auth-Request-Name
@@ -271,7 +273,7 @@ services:
       - web
     deploy:
       labels:
-        caddy: whoami.razzie.cloud
+        caddy: whoami.${DOMAIN:-razzie.cloud}
         caddy.reverse_proxy: "{{upstreams 80}}"
         # Apply auth snippet defined on the Caddy service
         caddy.import: access_gateway
@@ -299,7 +301,7 @@ services:
       - caddy_config:/config
     environment:
       CADDY_INGRESS_NETWORKS: "${STACK_NAME}_web"
-      # CADDY_EMAIL: "system@razzie.cloud"   # optionally set ACME email
+      # CADDY_EMAIL: "system@${DOMAIN:-razzie.cloud}"   # optionally set ACME email
     deploy:
       placement:
         constraints:

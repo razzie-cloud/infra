@@ -35,12 +35,16 @@ RazChess, UUID, GeoIP and 0x40hues use fixed defaults from the stack; their
 image tag variables in `.env.example` allow explicit overrides and are left
 unchanged by `make latest-tags`.
 
-The stack uses `razzie.cloud`, `auth.razzie.cloud`, `files.razzie.cloud`,
+By default, the stack uses `razzie.cloud`, `auth.razzie.cloud`, `files.razzie.cloud`,
 `shared-files.razzie.cloud`, `logs.razzie.cloud`, `whoami.razzie.cloud`,
 `chess.razzie.cloud`, `uuid.razzie.cloud`, `geoip.razzie.cloud`, and `hues.razzie.cloud`.
-For your domain, update DNS, Caddy labels, `ORIGIN`, `SHARE_ORIGIN`, `RP_ID`, and
-`FORWARD_AUTH_ORIGINS` together. Keep the sharing hostname separate from management
-and outside the gateway allowlist. Set `DOCKER_CONTEXT` in `.env` for your Swarm.
+Set `DOMAIN=example.com` in `.env` to use another base hostname (no scheme, port,
+or trailing slash). It defaults to `razzie.cloud` and updates all Caddy host labels,
+service origins, the passkey relying-party ID, the gateway allowlist, and homepage
+links and metadata. Point the apex and listed subdomains at your ingress host.
+The sharing hostname stays separate from management and outside the gateway
+allowlist. You can also override it with `make config DOMAIN=example.com` or
+`make deploy DOMAIN=example.com`. Set `DOCKER_CONTEXT` in `.env` for your Swarm.
 
 Run from this directory:
 

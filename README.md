@@ -10,8 +10,9 @@ To explore the platform on your own machine first, use the
 [Razzie Cloud local demo](https://github.com/razzie-cloud/.github#try-it-locally).
 
 The public [landing page](https://github.com/razzie-cloud/landing) is served at `razzie.cloud`, with
-links to GitHub, Files, Notes, and sign-in. Its assets are packaged in a static Caddy
-image; build and publish it before the first deployment and after page changes.
+links to GitHub, Files, Notes, and sign-in. Its page and assets are embedded in a
+standalone Go HTTP service image; build and publish it before the first deployment
+and after page changes.
 
 ## First deployment
 

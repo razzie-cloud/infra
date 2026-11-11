@@ -31,9 +31,10 @@
 - The separate `razzie-cloud/landing` repository owns the homepage image. Build and publish
   `ghcr.io/razzie-cloud/landing` before selecting `LANDING_IMAGE_TAG` in `.env`;
   export it in the Makefile. Swarm serves it at `razzie.cloud` without auth.
-  The image serves only generated HTML, styles and assets; config and source
-  stay outside the web root. Local Compose builds the landing submodule with
-  runtime localhost settings. `LANDING_APPS_FILE` supplies the optional JSON app
+  The Go HTTP service embeds assets and renders HTML in memory at startup;
+  only the public page/assets and health endpoints are served. Config/source
+  stay private, and the container runs as an unprivileged user. Local Compose
+  builds the landing submodule with runtime localhost settings. `LANDING_APPS_FILE` supplies the optional JSON app
   list through a Docker config; `landing-apps.json` includes Files and Notes.
 - Valkey requires 9.1.0+ with database ACLs and runs standalone. Database 0
   stores broker metadata; applications use the other 15 databases. Both AOF

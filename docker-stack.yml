@@ -135,7 +135,7 @@ services:
       RP_NAME: Razzie Cloud
       # Gateway ports are private; accept client IPs from the overlay proxy.
       TRUSTED_PROXIES: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
-      FORWARD_AUTH_ORIGINS: https://files.${DOMAIN:-razzie.cloud},https://whoami.${DOMAIN:-razzie.cloud},https://logs.${DOMAIN:-razzie.cloud},https://notes.${DOMAIN:-razzie.cloud}
+      FORWARD_AUTH_ORIGINS: https://*.${DOMAIN:-razzie.cloud}
     networks:
       - internal
       - web

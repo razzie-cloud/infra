@@ -5,7 +5,7 @@ See the [README](../README.md) for prerequisites and first deployment, and
 
 ## Image selection and deployment
 
-Copy `.env.example` to `.env` and set the four platform service image tags to
+Copy `.env.example` to `.env` and set the five platform service image tags to
 published releases. The example contains third-party image tags and operator defaults;
 RazChess, UUID, GeoIP and 0x40hues have fixed defaults with optional image tag overrides.
 Other image tags must be supplied explicitly. Keep platform release selections
@@ -17,7 +17,7 @@ Swarm does not build images or read this checkout's assets from a bind mount.
 In a parent Razzie Cloud checkout, `make latest-tags` discovers remote stable platform
 releases and initializes or updates this file automatically. It does not query
 RazChess, UUID, GeoIP or 0x40hues remotes or change their overrides.
-It also leaves `LANDING_IMAGE_TAG` under operator control.
+Discovery includes `LANDING_IMAGE_TAG` from the independent landing repository.
 
 Run from this directory:
 

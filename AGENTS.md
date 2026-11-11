@@ -30,7 +30,9 @@
   ingress ports (80/443). Keep databases and broker APIs private.
 - The separate `razzie-cloud/landing` repository owns the homepage image. Build and publish
   `ghcr.io/razzie-cloud/landing` before selecting `LANDING_IMAGE_TAG` in `.env`;
-  export it in the Makefile. Swarm serves it at `razzie.cloud` without auth.
+  export it in the Makefile. Parent `make latest-tags` discovers landing releases
+  alongside gateway, broker, Files and Notes. Swarm serves it at `razzie.cloud`
+  without auth.
   The Go HTTP service embeds assets and renders HTML in memory at startup;
   only the public page/assets and health endpoints are served. Config/source
   stay private, and the container runs as an unprivileged user. Local Compose

@@ -26,12 +26,11 @@ cd infra
 cp .env.example .env
 ```
 
-Set the four platform service image tags in `.env` to published releases. Keep
-image selections in this ignored file. In the parent checkout, `make latest-tags` can
-select stable platform service tags; confirm their images are published before
-deploying. Also set `LANDING_IMAGE_TAG` to a published homepage image built from
-the independent landing repository; see its [build instructions](https://github.com/razzie-cloud/landing#releases).
-`make latest-tags` preserves that selection and only discovers the four Go service tags.
+Set the five platform service image tags in `.env` to published releases. Keep
+image selections in this ignored file. In the parent checkout, `make latest-tags`
+selects stable tags for the gateway, broker, Files, Notes and landing, including
+`LANDING_IMAGE_TAG`. Confirm their images are published before deploying. See the
+landing [build instructions](https://github.com/razzie-cloud/landing#releases).
 RazChess, UUID, GeoIP and 0x40hues use fixed defaults from the stack; their
 image tag variables in `.env.example` allow explicit overrides and are left
 unchanged by `make latest-tags`.
@@ -54,8 +53,8 @@ there are no Notes-specific provider Docker secrets or credential environment
 variables. PostgreSQL stores durable connections and crypt passwords alongside
 the rebuildable content index. Preserve database backups, gateway identities,
 crypt recovery downloads and S3 content. Optional NOTES_S3_* settings only govern
-operator-managed egress exceptions. The first Notes release must be published
-before `make latest-tags` can discover all four service tags. See
+operator-managed egress exceptions. Each platform service remote must have a stable release tag before
+`make latest-tags` can select all five image tags. See
 [Notes](https://github.com/razzie-cloud/notes#readme) for setup and recovery.
 
 Run from this directory:

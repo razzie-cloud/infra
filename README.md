@@ -2,7 +2,7 @@
 
 Deploy the Razzie Cloud platform with Docker Swarm and Caddy-managed HTTPS. The stack
 includes access-gateway for passkey sign-in, database-broker for provisioning,
-Files for S3 storage, public RazChess, UUID, GeoIP and 0x40hues apps, PostgreSQL, Valkey,
+Files for S3 storage, Notes for Markdown and search, public RazChess, UUID, GeoIP and 0x40hues apps, PostgreSQL, Valkey,
 administrator-only Dozzle logs, and a whoami demo. Optional
 [NixOS configuration](nixos/README.md) prepares the host.
 
@@ -10,7 +10,7 @@ To explore the platform on your own machine first, use the
 [Razzie Cloud local demo](https://github.com/razzie-cloud/.github#try-it-locally).
 
 The public [landing page](landing/README.md) is served at `razzie.cloud`, with
-links to GitHub, Files, and sign-in. Its assets are packaged in a static Caddy
+links to GitHub, Files, Notes, and sign-in. Its assets are packaged in a static Caddy
 image; build and publish it before the first deployment and after page changes.
 
 ## First deployment
@@ -25,18 +25,18 @@ cd infra
 cp .env.example .env
 ```
 
-Set the three platform service image tags in `.env` to published releases. Keep
+Set the four platform service image tags in `.env` to published releases. Keep
 image selections in this ignored file. In the parent checkout, `make latest-tags` can
 select stable platform service tags; confirm their images are published before
 deploying. Also set `LANDING_IMAGE_TAG` to a published homepage image built from
 `landing/`; see its [build instructions](landing/README.md#swarm-image).
-`make latest-tags` preserves that selection and only discovers the three Go service tags.
+`make latest-tags` preserves that selection and only discovers the four Go service tags.
 RazChess, UUID, GeoIP and 0x40hues use fixed defaults from the stack; their
 image tag variables in `.env.example` allow explicit overrides and are left
 unchanged by `make latest-tags`.
 
 By default, the stack uses `razzie.cloud`, `auth.razzie.cloud`, `files.razzie.cloud`,
-`shared-files.razzie.cloud`, `logs.razzie.cloud`, `whoami.razzie.cloud`,
+`notes.razzie.cloud`, `shared-files.razzie.cloud`, `logs.razzie.cloud`, `whoami.razzie.cloud`,
 `chess.razzie.cloud`, `uuid.razzie.cloud`, `geoip.razzie.cloud`, and `hues.razzie.cloud`.
 Set `DOMAIN=example.com` in `.env` to use another base hostname (no scheme, port,
 or trailing slash). It defaults to `razzie.cloud` and updates all Caddy host labels,
@@ -46,6 +46,17 @@ The sharing hostname stays separate from management and outside the gateway
 allowlist. You can also override it with `make config DOMAIN=example.com` or
 `make deploy DOMAIN=example.com`. Set `DOCKER_CONTEXT` in `.env` for your Swarm.
 
+Before deployment, select a published `NOTES_IMAGE_TAG` and rebuild/publish the
+landing image for its Notes link. Notes users add their own S3 connections and
+optionally encrypted bucket/prefix notebooks in the Storage UI, following Files;
+there are no Notes-specific provider Docker secrets or credential environment
+variables. PostgreSQL stores durable connections and crypt passwords alongside
+the rebuildable content index. Preserve database backups, gateway identities,
+crypt recovery downloads and S3 content. Optional NOTES_S3_* settings only govern
+operator-managed egress exceptions. The first Notes release must be published
+before `make latest-tags` can discover all four service tags. See
+[Notes](https://github.com/razzie-cloud/notes#readme) for setup and recovery.
+
 Run from this directory:
 
 ```sh
@@ -53,7 +64,7 @@ make config   # Validate configuration without deploying
 make deploy   # Create missing database secrets and deploy the stack
 ```
 
-Gateway and broker run two replicas each.
+Gateway, broker, and Notes run two replicas each.
 
 On first start, read the gateway's `bootstrap.token_created` log event and use its
 `bootstrap_token` at your auth URL to create the administrator and enroll a passkey.

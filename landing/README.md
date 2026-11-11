@@ -31,7 +31,7 @@ Screenshots: [light desktop](previews/desktop-light.png),
 
 The parent Compose stack builds this directory as the `landing` service and
 serves it through Caddy at <http://localhost:8080>. Files and sign-in links are
-rewritten at build time to `files.localhost` and `auth.localhost`, including the
+rewritten at build time to `files.localhost`, `notes.localhost`, and `auth.localhost`, including the
 shared `LOCAL_PORT`. GitHub links keep their public destination.
 
 From the parent checkout, after setting the usual local `.env` passwords:
@@ -63,7 +63,7 @@ docker push "ghcr.io/razzie-cloud/landing:$landing_tag"
 Set `LANDING_IMAGE_TAG` in infra's ignored `.env` to that tag, run `make config`,
 then use the normal `make deploy` workflow when ready. The registry image must
 be pullable by the Swarm nodes. For a private package, log in to GHCR locally;
-the deployment script forwards that login to Swarm. `make latest-tags` selects only the three Go
+the deployment script forwards that login to Swarm. `make latest-tags` selects only the four Go
 services and preserves your landing tag. Point the apex DNS record at the Caddy
 ingress host; the existing proxy handles HTTPS. No gateway allowlist entry or
 database is needed for the homepage.
@@ -84,7 +84,7 @@ the Pico license is retained beside the vendored CSS.
 Headless Chromium checked both color schemes at widths of 320, 390, 768, 1024,
 1440, and 1920 pixels, with no page overflow or browser errors. Desktop and mobile
 screenshots were captured from the actual HTML. Checks covered successful local
-asset loads, a single primary heading, the three exact external destinations,
+asset loads, a single primary heading, the expected external destinations (GitHub, Files, Notes, sign-in),
 keyboard skip navigation, and content/service links with JavaScript disabled.
 Rendering makes no requests to third-party origins. Destination links were
 verified in the document without signing in or contacting live services.
@@ -100,3 +100,5 @@ network were removed afterward.
 The installed Docker CLI lacks `docker stack config`; the Swarm file was checked
 with `docker compose config` instead. No Swarm deployment or public DNS/TLS
 acceptance ran, and no image was pushed. No Go service code changed.
+
+The image also accepts `NOTES_ORIGIN` at build time for local Notes links.

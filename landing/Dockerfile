@@ -2,6 +2,7 @@ FROM caddy:2-alpine
 
 ARG FILES_ORIGIN=https://files.razzie.cloud
 ARG AUTH_ORIGIN=https://auth.razzie.cloud
+ARG NOTES_ORIGIN=https://notes.razzie.cloud
 
 COPY Caddyfile /etc/caddy/Caddyfile
 COPY index.html /etc/landing/index.html
@@ -13,6 +14,8 @@ COPY docker-entrypoint.sh /usr/local/bin/landing-entrypoint
 RUN sed -i \
       -e "s|https://files.razzie.cloud|${FILES_ORIGIN}|g" \
       -e "s|https://auth.razzie.cloud|${AUTH_ORIGIN}|g" \
+      -e "s|https://notes.razzie.cloud|${NOTES_ORIGIN}|g" \
+      -e "s|<small>notes.razzie.cloud</small>|<small>${NOTES_ORIGIN#*://}</small>|g" \
       -e "s|<small>files.razzie.cloud</small>|<small>${FILES_ORIGIN#*://}</small>|g" \
       -e "s|<small>auth.razzie.cloud</small>|<small>${AUTH_ORIGIN#*://}</small>|g" \
       /etc/landing/index.html

@@ -24,7 +24,7 @@
   Tags match published Git tags exactly,
   including any `v` prefix. Images must be published before deployment; changing
   a service checkout does not publish them.
-- PostgreSQL, Valkey, and the broker use the `internal` overlay. Gateway, files,
+- PostgreSQL, Valkey, and the broker use the `internal` overlay. Gateway, files, notes,
   RazChess, and GeoIP join `internal` and `web`; Caddy, Dozzle, whoami, UUID,
   0x40hues, and the public landing service join `web`. Only Caddy publishes
   ingress ports (80/443). Keep databases and broker APIs private.
@@ -90,6 +90,16 @@
   `postgres_password` and `valkey_password` secrets and preserves existing ones.
   It passes `--with-registry-auth` so nodes can pull operator-selected private images.
   Do not expose credentials or remove secrets, volumes, or obsolete services incidentally.
+- Notes uses two replicas with broker PostgreSQL and River jobs. Users add S3
+  connections and optionally rclone-encrypted notebooks through its UI, following
+  Files. Connections, mappings and crypt recovery records are durable owner-scoped
+  PostgreSQL settings; back them up. Index rows/jobs are derived from S3. No Notes
+  provider Docker secrets, credential environment variables or secret volume are
+  needed. Export NOTES_IMAGE_TAG and optional egress/queue settings through Make.
+  Every Notes path uses forward auth; /v1/admin/* uses /forward_auth/admin.
+  Strip X-Notes-Admin and identity input first, then issue the admin marker only
+  after successful gateway admin validation. Keep callbacks protected; landing
+  links and the gateway allowlist include Notes origins.
 - Files keeps credentials and crypt recovery passwords in its broker-provisioned
   PostgreSQL database. Preserve backups; no files-specific persistent volume or
   secret is required. S3 access uses the web overlay and blocks private endpoints

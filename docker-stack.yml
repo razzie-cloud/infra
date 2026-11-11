@@ -149,6 +149,7 @@ services:
   files:
     image: ghcr.io/razzie-cloud/files:${FILES_IMAGE_TAG:?Set FILES_IMAGE_TAG in infra/.env}
     environment:
+      ACCESS_GATEWAY_URL: http://access-gateway:8080
       POSTGRES_URI_FROM: http://database-broker:8080/v1/instances/postgres/files/uri
       ORIGIN: https://files.${DOMAIN:-razzie.cloud}
       LANDING_ORIGIN: https://${DOMAIN:-razzie.cloud}
@@ -163,25 +164,28 @@ services:
         # Keep every path, including /_auth/callback, behind forward auth.
         caddy.route.0_request_header: -X-Auth-Request-User
         caddy.route.1_request_header: -X-Auth-Request-Name
-        caddy.route.2_forward_auth: access-gateway:8080
-        caddy.route.2_forward_auth.uri: /forward_auth
-        caddy.route.2_forward_auth.copy_headers: X-Auth-Request-User X-Auth-Request-Name
-        caddy.route.3_reverse_proxy: "{{upstreams 8080}}"
+        caddy.route.2_request_header: -X-Auth-Request-Token
+        caddy.route.3_forward_auth: access-gateway:8080
+        caddy.route.3_forward_auth.uri: /forward_auth
+        caddy.route.3_forward_auth.copy_headers: X-Auth-Request-User X-Auth-Request-Name X-Auth-Request-Token
+        caddy.route.4_reverse_proxy: "{{upstreams 8080}}"
         # Public capabilities use a separate host; management stays behind SSO.
         caddy_1: shared-files.${DOMAIN:-razzie.cloud}
         caddy_1.route.0_request_header: -X-Auth-Request-User
         caddy_1.route.1_request_header: -X-Auth-Request-Name
-        caddy_1.route.2_handle: /s/*
-        caddy_1.route.2_handle.reverse_proxy: "{{upstreams 8080}}"
-        caddy_1.route.3_handle: /static/*
+        caddy_1.route.2_request_header: -X-Auth-Request-Token
+        caddy_1.route.3_handle: /s/*
         caddy_1.route.3_handle.reverse_proxy: "{{upstreams 8080}}"
-        caddy_1.route.4_handle.respond: "404"
+        caddy_1.route.4_handle: /static/*
+        caddy_1.route.4_handle.reverse_proxy: "{{upstreams 8080}}"
+        caddy_1.route.5_handle.respond: "404"
       restart_policy:
         condition: on-failure
 
   notes:
     image: ghcr.io/razzie-cloud/notes:${NOTES_IMAGE_TAG:?Set NOTES_IMAGE_TAG in infra/.env}
     environment:
+      ACCESS_GATEWAY_URL: http://access-gateway:8080
       POSTGRES_URI_FROM: http://database-broker:8080/v1/instances/postgres/notes/uri
       ORIGIN: https://notes.${DOMAIN:-razzie.cloud}
       LANDING_ORIGIN: https://${DOMAIN:-razzie.cloud}
@@ -198,18 +202,19 @@ services:
         caddy: notes.${DOMAIN:-razzie.cloud}
         caddy.route.0_request_header: -X-Auth-Request-User
         caddy.route.1_request_header: -X-Auth-Request-Name
-        caddy.route.2_request_header: -X-Notes-Admin
-        caddy.route.3_handle: /v1/admin/*
-        caddy.route.3_handle.route.0_forward_auth: access-gateway:8080
-        caddy.route.3_handle.route.0_forward_auth.uri: /forward_auth/admin
-        caddy.route.3_handle.route.0_forward_auth.copy_headers: X-Auth-Request-User X-Auth-Request-Name
-        caddy.route.3_handle.route.1_request_header: X-Notes-Admin true
-        caddy.route.3_handle.route.2_reverse_proxy: "{{upstreams 8080}}"
-        caddy.route.4_handle:
-        caddy.route.4_handle.forward_auth: access-gateway:8080
-        caddy.route.4_handle.forward_auth.uri: /forward_auth
-        caddy.route.4_handle.forward_auth.copy_headers: X-Auth-Request-User X-Auth-Request-Name
-        caddy.route.4_handle.reverse_proxy: "{{upstreams 8080}}"
+        caddy.route.2_request_header: -X-Auth-Request-Token
+        caddy.route.3_request_header: -X-Notes-Admin
+        caddy.route.4_handle: /v1/admin/*
+        caddy.route.4_handle.route.0_forward_auth: access-gateway:8080
+        caddy.route.4_handle.route.0_forward_auth.uri: /forward_auth/admin
+        caddy.route.4_handle.route.0_forward_auth.copy_headers: X-Auth-Request-User X-Auth-Request-Name X-Auth-Request-Token
+        caddy.route.4_handle.route.1_request_header: X-Notes-Admin true
+        caddy.route.4_handle.route.2_reverse_proxy: "{{upstreams 8080}}"
+        caddy.route.5_handle:
+        caddy.route.5_handle.forward_auth: access-gateway:8080
+        caddy.route.5_handle.forward_auth.uri: /forward_auth
+        caddy.route.5_handle.forward_auth.copy_headers: X-Auth-Request-User X-Auth-Request-Name X-Auth-Request-Token
+        caddy.route.5_handle.reverse_proxy: "{{upstreams 8080}}"
       restart_policy:
         condition: on-failure
 
@@ -301,12 +306,13 @@ services:
         # Strip all identity/role/filter input before copying verified identity.
         caddy.route.0_request_header: -X-Auth-Request-User
         caddy.route.1_request_header: -X-Auth-Request-Name
-        caddy.route.2_request_header: -Remote-*
+        caddy.route.2_request_header: -X-Auth-Request-Token
+        caddy.route.3_request_header: -Remote-*
         # The callback and streaming APIs require the same admin policy.
-        caddy.route.3_forward_auth: access-gateway:8080
-        caddy.route.3_forward_auth.uri: /forward_auth/admin
-        caddy.route.3_forward_auth.copy_headers: X-Auth-Request-User X-Auth-Request-Name
-        caddy.route.4_reverse_proxy: "{{upstreams 8080}}"
+        caddy.route.4_forward_auth: access-gateway:8080
+        caddy.route.4_forward_auth.uri: /forward_auth/admin
+        caddy.route.4_forward_auth.copy_headers: X-Auth-Request-User X-Auth-Request-Name X-Auth-Request-Token
+        caddy.route.5_reverse_proxy: "{{upstreams 8080}}"
       restart_policy:
         condition: on-failure
 

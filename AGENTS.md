@@ -140,3 +140,12 @@ for fields and icon presets. Editing a Docker config requires a new config name
 for an existing Swarm deployment; rename `landing_apps` in both config declaration
 and service reference before deploying a changed file. `DOMAIN` also supplies
 `LANDING_ORIGIN` to the gateway, Files and Notes for their cloud-home links.
+
+Files/Notes use ACCESS_GATEWAY_URL=http://access-gateway:8080 for startup public-key
+discovery and mandatory PASETO identity verification. Publish a supporting gateway
+before enabling this stack configuration; Swarm retries startup failures. Strip
+X-Auth-Request-Token before auth and copy it with UUID/name. Notes admin routes
+also require signed admin=true, preserving the stripped/reissued marker. Public
+share hosts strip the token and keep capability access. Key discovery uses the
+private network; public app ORIGIN remains the audience. Expired verification
+keys never grant access during a gateway outage.

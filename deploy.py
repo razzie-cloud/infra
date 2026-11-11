@@ -28,10 +28,11 @@ class Docker:
     def __init__(self, context, env=None):
         self.context = context
         self.env = env if env is not None else os.environ
+        self.command = self.env.get('DOCKER_CLI') or 'docker'
 
     def run(self, *args, data=None, optional=False, timeout=90):
         try:
-            p = subprocess.run(['docker', '--context', self.context, *args], input=data,
+            p = subprocess.run([self.command, '--context', self.context, *args], input=data,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout, env=self.env)
         except (OSError, subprocess.TimeoutExpired):
             raise Failure('Docker operation unavailable or timed out') from None
@@ -56,19 +57,32 @@ class Docker:
             raise Failure('Invalid Docker inspection response') from None
 
 
-def escape_dollars(value):
-    # stack deploy interpolates again; preserve literal shell variables from Compose.
-    if isinstance(value, str):
-        return value.replace('$', '$$')
-    if isinstance(value, list):
-        return [escape_dollars(v) for v in value]
-    if isinstance(value, dict):
-        return {k: escape_dollars(v) for k, v in value.items()}
-    return value
-
-
 def digest(data):
     return hashlib.sha256(data).hexdigest()
+
+
+def resource_name(value):
+    # Swarm secrets/configs allow at most 64 characters. Keep existing valid
+    # names stable; hash the entire identity when a readable name is too long.
+    if len(value) <= 64:
+        return value
+    return value[:31].rstrip('-_.') + '-' + digest(value.encode())[:32]
+
+
+def task_spec(spec):
+    # Swarm adds defaults to Service.TaskTemplate that it omits from Task.Spec.
+    # Normalize only those defaults; keep commands, env, mounts and keys exact.
+    spec = json.loads(json.dumps(spec))
+    spec.setdefault('Runtime', 'container')
+    restart = spec.get('RestartPolicy')
+    if restart is not None:
+        restart.setdefault('Delay', 5_000_000_000)
+    container = spec.get('ContainerSpec')
+    if container is not None:
+        container.setdefault('StopGracePeriod', 10_000_000_000)
+        if container.get('DNSConfig') is None:
+            container['DNSConfig'] = {}
+    return spec
 
 
 def labels(obj):
@@ -143,6 +157,16 @@ class Deployment:
         for value in base.get('volumes', {}).values():
             if not value.get('external'):
                 value.pop('name', None)
+        for service in base.get('services', {}).values():
+            # Compose emits null overrides and long-form dependencies that its
+            # own schema accepts but Swarm's v3 stack loader rejects/ignores.
+            for field in ('command', 'entrypoint'):
+                if service.get(field) is None:
+                    service.pop(field, None)
+            service.pop('depends_on', None)
+            for port in service.get('ports', []):
+                if isinstance(port, dict) and isinstance(port.get('published'), str) and port['published'].isdigit():
+                    port['published'] = int(port['published'])
         return base
 
     def mount_secret(self, doc, service, logical, actual, target, uid=0):
@@ -236,13 +260,16 @@ class Deployment:
     def validate_stack(self, doc):
         with self.stack_file(doc) as path:
             self.docker.run('compose', '-f', path, 'config', '--no-interpolate', '--quiet')
+            self.docker.run('stack', 'config', '--skip-interpolation', '-c', path)
 
     def stack_file(self, doc):
         class StackFile:
             def __enter__(inner):
                 inner.f = tempfile.NamedTemporaryFile(mode='w', suffix='.json', prefix='broker-stack-', delete=False)
                 os.chmod(inner.f.name, 0o600)
-                json.dump(escape_dollars(doc), inner.f)
+                # Compose config already escapes literal dollars for a subsequent
+                # loader. Escaping again turns $(command) into a shell syntax error.
+                json.dump(doc, inner.f)
                 inner.f.close()
                 return inner.f.name
             def __exit__(inner, *args):
@@ -251,7 +278,7 @@ class Deployment:
 
     def config(self, kind, data):
         sha = digest(data)
-        name = self.prefix + '-' + kind + '-' + sha[:24]
+        name = resource_name(self.prefix + '-' + kind + '-' + sha[:24])
         expected = dict(self.owner, kind=kind, sha256=sha)
         obj = self.docker.inspect('config', name)
         if obj:
@@ -273,9 +300,10 @@ class Deployment:
         return secret_id
 
     def master(self, key):
-        name = self.prefix + '-master-' + key
+        raw_name = self.prefix + '-master-' + key
+        name = resource_name(raw_name)
         expected = dict(self.owner, kind='master', key=key)
-        anchor_name = name + '-identity'
+        anchor_name = resource_name(raw_name + '-identity')
         anchor = self.docker.inspect('config', anchor_name)
         obj = self.docker.inspect('secret', name)
         if anchor:
@@ -300,17 +328,17 @@ class Deployment:
         self.master_ids[key] = master_id
 
     def acquire(self):
-        name = self.stack + '-broker-deployment-lock'
+        name = resource_name(self.stack + '-broker-deployment-lock')
         # Config create is atomic across deploy hosts, unlike a local flock.
         lock_id = self.docker.run('config', 'create', *label_args(dict(self.owner, kind='deployment-lock', run=self.run_id)),
                                   name, '-', data=self.run_id.encode()).decode().strip()
         self.lock = (name, lock_id)
 
     def helper_start(self, image, manager):
-        self.helper = self.prefix + '-helper-' + self.run_id
+        self.helper = resource_name(self.prefix + '-helper-' + self.run_id)
         self.helper_kind = 'generator'
         key = self.policy['key_id']
-        self.docker.run('service', 'create', '--name', self.helper, '--constraint', 'node.id==' + manager,
+        self.docker.run('service', 'create', '--detach=true', '--name', self.helper, '--constraint', 'node.id==' + manager,
                         '--restart-condition', 'none', '--no-healthcheck', '--log-driver', 'none', '--read-only',
                         '--cap-drop', 'ALL', '--user', '0:0',
                         *label_args(dict(self.owner, kind='generator', run=self.run_id)),
@@ -336,7 +364,7 @@ class Deployment:
             if c.get('enabled') is False:
                 continue
             generation = str(c['generation'])
-            name = self.prefix + '-' + key + '-' + client + '-g' + generation
+            name = resource_name(self.prefix + '-' + key + '-' + client + '-g' + generation)
             expected = dict(self.owner, kind='token', key=key, client=client, generation=generation, **{'master-id': self.master_ids[key]})
             obj = self.docker.inspect('secret', name)
             if obj:
@@ -427,10 +455,10 @@ class Deployment:
                     count = int(exact[0].split('/')[1].split()[0])
                 tasks = self.docker.run('service', 'ps', '--filter', 'desired-state=running', '--format', '{{.ID}}', '--no-trunc', self.stack + '_' + name).decode().splitlines()
                 running = 0
-                target_version = spec['TaskTemplate']
+                target_version = task_spec(spec['TaskTemplate'])
                 for task_id in tasks:
                     task = json.loads(self.docker.run('inspect', task_id))[0]
-                    if task.get('Status', {}).get('State') == 'running' and task.get('Spec') == target_version:
+                    if task.get('Status', {}).get('State') == 'running' and task_spec(task.get('Spec', {})) == target_version:
                         # Swarm considers tasks RUNNING before Docker health settles.
                         node_id = task.get('NodeID')
                         cid = task.get('Status', {}).get('ContainerStatus', {}).get('ContainerID')
@@ -474,6 +502,7 @@ class Deployment:
         previous, enforced = self.previous_broker()
         if self.mode == 'none' and enforced:
             raise Failure('Refusing to downgrade an enforcing installation to none')
+        pulled = set()
         if self.mode == 'token':
             origin = self.env.get('BROKER_ORIGIN', 'https://database-broker:8443')
             if not re.fullmatch(r'https://[A-Za-z0-9.-]+(?::[0-9]+)?', origin):
@@ -485,6 +514,7 @@ class Deployment:
             image = base['services']['database-broker']['image']
             # Send policy bytes over stdin, including with SSH contexts. No host bind mount.
             self.docker.run('image', 'pull', image, timeout=300)
+            pulled.add(image)
             raw = self.docker.run('run', '--rm', '-i', '--network', 'none', '--read-only', '--log-driver', 'none',
                                   '--entrypoint', '/broker-token', image, 'validate', '--policy', '-',
                                   '--deployment-id', self.deployment, data=self.public_policy)
@@ -505,7 +535,11 @@ class Deployment:
         doc = self.render(base)
         self.validate_stack(doc)
         for image in sorted({s['image'] for s in doc['services'].values()}):
-            self.docker.run('manifest', 'inspect', image, timeout=120)
+            if image not in pulled:
+                # Verify the target daemon can pull its actual platform. Local
+                # CLI manifest inspection has separate registry limits and may
+                # not understand OCI indexes supported by the target engine.
+                self.docker.run('image', 'pull', image, timeout=300)
         return previous, enforced
 
     def execute(self, check=False):
@@ -599,9 +633,9 @@ class Deployment:
                             ready_addresses.append(('[' + ip + ']' if ':' in ip else ip) + ':8080')
         if ready_addresses:
             probe_args += ['--ready-addresses', ','.join(sorted(set(ready_addresses)))]
-        self.helper = self.prefix + '-probe-' + self.run_id
+        self.helper = resource_name(self.prefix + '-probe-' + self.run_id)
         self.helper_kind = 'probe'
-        self.docker.run('service', 'create', '--name', self.helper, '--constraint', 'node.id==' + self.manager,
+        self.docker.run('service', 'create', '--detach=true', '--name', self.helper, '--constraint', 'node.id==' + self.manager,
                         '--restart-condition', 'none', '--no-healthcheck', '--log-driver', 'none', '--read-only',
                         '--cap-drop', 'ALL', *label_args(dict(self.owner, kind='probe', run=self.run_id)),
                         '--network', self.stack + '_internal', '--entrypoint', '/broker-token',

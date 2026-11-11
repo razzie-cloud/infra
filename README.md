@@ -64,7 +64,11 @@ make config   # Validate configuration without deploying
 make deploy   # Prepare scoped secrets, validate TLS and roll out the stack
 ```
 
-Before secure deployment, prepare the operator PKI and publish the two legacy-app
+For a brand new deployment, `make broker-pki` prepares a dedicated internal CA,
+broker certificate and Swarm TLS secret (Python 3 and OpenSSL 3 required). It
+reuses existing inputs without rotating them; keep the ignored CA private key
+secure for renewal. An existing operator PKI can also supply these inputs.
+Before secure deployment, prepare the PKI and publish the two legacy-app
 adapter images described in [scoped broker deployment](docs/broker-authentication.md).
 Token mode is the default. `make deploy` prepares Swarm-only keys and per-app tokens,
 performs staged migration for an existing tokenless stack, and checks convergence.

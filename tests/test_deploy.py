@@ -92,6 +92,82 @@ class DeploymentTest(unittest.TestCase):
         # A failed run leaves reusable master/config state, not a second key.
         self.assertEqual(self.state['secret_input_lengths'].count(32), 1)
 
+    def test_long_resource_names_and_redeploy_preserve_identities(self):
+        self.env['STACK_NAME'] = 'stack' + 'x' * 43
+        key = 'k' * 64
+        client = 'c' * 64
+        self.policy['key_id'] = key
+        self.policy['accepted_key_ids'] = [key]
+        self.policy['clients'][client] = {'generation': 9007199254740991, 'accepted_generations': [9007199254740991], 'allow': []}
+        self.state['policy'] = self.policy
+        self.run_deploy()
+        first = copy.deepcopy(self.state)
+        for kind in ('secret', 'config'):
+            self.assertTrue(all(len(name) <= 64 for name in first[kind]))
+        self.run_deploy()
+        self.assertEqual(first['secret'], self.state['secret'])
+        self.assertEqual(first['config'], self.state['config'])
+        self.assertEqual(first['secret_input_lengths'], self.state['secret_input_lengths'])
+
+    def test_compose_normalization_preserves_swarm_compatible_commands(self):
+        services = self.state['base']['services']
+        for service in services.values():
+            service['entrypoint'] = None
+            service.setdefault('command', None)
+        services['database-broker']['depends_on'] = {'postgres': {'condition': 'service_started', 'required': True}}
+        services['postgres']['command'] = []  # Explicitly empty differs from an inherited command.
+        services['postgres']['ports'] = [{'target': 5432, 'published': '15432', 'mode': 'host'}]
+        self.run_deploy()
+        final = self.state['deploys'][-1]['services']
+        self.assertNotIn('entrypoint', final['database-broker'])
+        self.assertNotIn('command', final['database-broker'])
+        self.assertNotIn('depends_on', final['database-broker'])
+        self.assertEqual(final['postgres']['command'], [])
+        self.assertEqual(final['postgres']['ports'], [{'target': 5432, 'published': 15432, 'mode': 'host'}])
+        self.assertEqual(final['razchess']['command'][-3:], ['--', '--session-timeout', '5m'])
+
+    def test_swarm_schema_failure_precedes_resource_creation(self):
+        self.state['invalid_swarm'] = True
+        self.run_deploy(False)
+        self.assertNotIn('secret_input_lengths', self.state)
+        self.assertFalse(self.state.get('config'))
+        self.assertNotIn('deploys', self.state)
+
+    def test_compose_shell_escapes_are_interpolated_exactly_once(self):
+        valkey = self.state['base']['services']['valkey']
+        valkey['command'] = ['sh', '-ec', 'hash=$$(cat /secret); echo "$$hash" "$$$$"']
+        valkey['healthcheck'] = {'test': ['CMD-SHELL', 'AUTH=$$(cat /secret) check']}
+        valkey['environment'] = {'LITERAL': 'value-$${NOT_SET}'}
+        self.run_deploy()
+        actual = self.state['deploys'][-1]['services']['valkey']
+        self.assertEqual(actual['command'], ['sh', '-ec', 'hash=$(cat /secret); echo "$hash" "$$"'])
+        self.assertEqual(actual['healthcheck']['test'], ['CMD-SHELL', 'AUTH=$(cat /secret) check'])
+        self.assertEqual(actual['environment'], {'LITERAL': 'value-${NOT_SET}'})
+
+    def test_swarm_default_fields_do_not_block_convergence(self):
+        self.state['swarm_default_fields'] = True
+        self.run_deploy()
+
+    def test_image_checks_pull_every_selected_image_on_the_target(self):
+        self.run_deploy()
+        images = {s['image'] for s in self.state['deploys'][-1]['services'].values()}
+        pulled = {args[2] for args in self.state['commands'] if args[:2] == ['image', 'pull']}
+        self.assertTrue(images <= pulled)
+        self.assertFalse(any(args[:2] == ['manifest', 'inspect'] for args in self.state['commands']))
+
+    def test_explicit_docker_client_path_is_used_without_shell_splitting(self):
+        selected = self.dir / 'selected docker client'
+        selected.write_bytes((self.dir / 'docker').read_bytes())
+        selected.chmod(0o700)
+        (self.dir / 'docker').write_text('#!/bin/sh\nexit 97\n')
+        self.env['DOCKER_CLI'] = str(selected)
+        self.run_deploy()
+
+    def test_stale_task_environment_never_passes_convergence(self):
+        self.state['swarm_default_fields'] = True
+        self.state['stale_task'] = True
+        self.run_deploy(False)
+
     def test_partial_client_state_reuses_successful_secrets(self):
         self.state['fail_client'] = 'files'
         self.run_deploy(False)

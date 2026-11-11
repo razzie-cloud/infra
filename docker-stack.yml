@@ -362,6 +362,11 @@ services:
       labels:
         # Define a reusable forward_auth snippet to access gateway
         caddy: (access_gateway)
-        caddy.forward_auth: access-gateway:8080
-        caddy.forward_auth.uri: /forward_auth
-        caddy.forward_auth.copy_headers: X-Auth-Request-User X-Auth-Request-Name
+        caddy.route.0_request_header: -X-Auth-Request-User
+        caddy.route.1_request_header: -X-Auth-Request-Name
+        # Whoami echoes request headers; never forward an assertion to the demo.
+        caddy.route.2_request_header: -X-Auth-Request-Token
+        caddy.route.3_request_header: -Remote-*
+        caddy.route.4_forward_auth: access-gateway:8080
+        caddy.route.4_forward_auth.uri: /forward_auth
+        caddy.route.4_forward_auth.copy_headers: X-Auth-Request-User X-Auth-Request-Name

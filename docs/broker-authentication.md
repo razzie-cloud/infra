@@ -27,15 +27,32 @@ make build-broker-apps
 ```
 
 Publish the resulting images through the operator release process; deployment
-validates all selected image manifests before modifying Swarm resources. Parent
+verifies all selected images can be pulled by the target daemon before modifying Swarm resources. Parent
 pins and Git tags alone do not publish images. Upstream overrides require rebuilding
 and publishing matching adapter layers, then selecting their full references.
 
-Provision a certificate with `database-broker` in its SANs, its issuing CA and a
-private key using the operator PKI. Set BROKER_CA_FILE, BROKER_TLS_CERT_FILE and
-BROKER_TLS_KEY_SECRET. Create the TLS key as an operator-managed Swarm secret,
-never in Git or .env; the helper verifies its existence and mounts it only into
-the broker. Certificate/CA configs are content-addressed. Renewal uses new public
+For a brand new installation, `make broker-pki` automates a dedicated internal CA,
+broker certificate and Swarm TLS key secret using Python 3 and OpenSSL 3. Run it
+before deployment (`make broker-pki deploy` runs both in order). It honors the
+selected Docker context, deployment identity, BROKER_ORIGIN, BROKER_CA_FILE,
+BROKER_TLS_CERT_FILE and BROKER_TLS_KEY_SECRET. The CA private key defaults to
+`broker-ca-key.pem` beside the CA certificate; BROKER_CA_KEY_FILE overrides it.
+The ignored `pki/` directory is created with owner-only access and the CA key
+with mode 0600. Back up that key securely for renewal. The server private key
+passes from process memory directly to Swarm secret stdin and is not saved locally.
+The CA lasts ten years and the broker certificate lasts 397 days; renewal remains
+an explicit operation. Repeating setup validates and reuses existing public inputs
+and the secret, without rotating keys. Missing public inputs for an existing secret,
+or a missing secret for an existing certificate, stop setup rather than replacing
+credentials. Setup shares the deployment lock and can resume interrupted public
+certificate publication after successful secret creation.
+
+Alternatively, provision a certificate with `database-broker` in its SANs, its
+issuing CA and a private key using an existing operator PKI. Set BROKER_CA_FILE,
+BROKER_TLS_CERT_FILE and BROKER_TLS_KEY_SECRET. Create the TLS key as an
+operator-managed Swarm secret, never in Git or .env; deployment verifies its
+existence and mounts it only into the broker. Certificate/CA configs are
+content-addressed. Renewal uses new public
 certificate bytes and a new secret name when the private key changes. It is
 independent of the token master key. No certificate verification is disabled.
 
@@ -48,13 +65,17 @@ Isolated local Compose intentionally uses HTTP and independent development keys.
 
 ## Deployment lifecycle
 
-The helper needs Python 3 (standard library only), Bash, Make and Docker Compose.
+The helper needs Python 3 (standard library only), Bash, Make, Docker Compose and
+a Docker CLI providing `docker stack config`. DOCKER_CLI can select a compatible
+client by absolute path without changing the system installation or active context.
 Every Docker command targets DOCKER_CONTEXT; no global context changes occur.
-`make config` validates interpolation and final reference structure offline with
+`make config` validates interpolation, final references and the Swarm stack schema offline with
 placeholder auth resource names. Deployment additionally validates policy with
 /broker-token from the selected image, verifies the target is an active manager,
-checks PKI certificate validity/hostname/chain with the same image and verifies
-image manifests, then validates the final stack before rollout. Deployed mode is
+checks PKI certificate validity/hostname/chain with the same image and pulls all
+selected images through that daemon, then validates the final stack before rollout.
+This checks the server's platform and registry access and prepares its image cache;
+it does not depend on local CLI support for OCI manifest indexes. Deployed mode is
 rechecked under the lock so overlapping preflights cannot trigger a stale downgrade.
 
 An atomically created stack-scoped Swarm config serializes deployment across
@@ -78,6 +99,9 @@ deployment identity, protocol, key version, client and generation. Ownership lab
 bind the full deployment and master Swarm ID. Matching secrets are reused without
 reading their values; conflicts stop deployment. An unchanged deployment or
 permission-only edit does not create a token-generation service.
+Resource names longer than Swarm's 64-character limit are shortened using a hash
+of the full name. Existing names within the limit remain unchanged, including
+previously reserved master identities and tokens.
 
 When tokens are missing, one temporary generator is pinned to the manager reached
 by the context (including SSH). It has only the policy and active master, no app
@@ -141,10 +165,11 @@ Bearer tokens remain replayable within their current grants if stolen.
 ## Verification
 
 `python3 -m unittest discover -s tests -v` runs isolated fake-Docker deployment
-checks (15 cases): bootstrap/redeploy, permission-only changes, added clients, failed/truncated
+and real-OpenSSL PKI setup checks: bootstrap/redeploy, permission-only changes, added clients, failed/truncated
 or interrupted generation, partial state, lost/replaced masters, custom remote
 context, rotations/revocation, staged upgrades, ownership conflicts and explicit
-none mode. Fixtures consume secret stdin without retaining it. `bash -n deploy.sh`
+none mode, internal CA setup/reuse, interrupted certificate publication and missing
+PKI inputs. Fixtures consume secret stdin without retaining it. `bash -n deploy.sh`
 and `make config` validate syntax/interpolation without a live daemon.
 
 A disposable Swarm acceptance run is still required before production release:

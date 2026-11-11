@@ -26,6 +26,12 @@ make config   # Validate without deploying
 make deploy   # Create missing secrets and deploy
 ```
 
+For a brand new secure stack, `make broker-pki` first prepares a dedicated internal
+CA, broker certificate and Swarm TLS secret. It requires Python 3/OpenSSL 3 and
+preserves existing inputs without rotation. An existing operator PKI remains
+supported. See [broker authentication](broker-authentication.md#images-and-tls)
+for paths, key custody and renewal.
+
 The Makefile loads `.env` and exports deployment settings. Use
 `make ENV_FILE=/absolute/path config` to select another file; Make command-line
 assignments override the file, for example `make deploy DOCKER_CONTEXT=my-swarm`.

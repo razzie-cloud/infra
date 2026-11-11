@@ -153,9 +153,27 @@ keys never grant access during a gateway outage.
 Scoped broker deployment defaults to BROKER_AUTH_MODE=token. Read
 [broker-authentication.md](docs/broker-authentication.md) before changing deploy.py,
 policy or secret lifecycle. deploy.sh delegates to Python 3; make config validates
-rendered references offline, deploy validates policy with the selected broker image.
+rendered references and the actual Swarm stack schema offline; deploy validates
+policy with the selected broker image. Normalize Compose-only null command fields,
+dependency maps and string published ports before Swarm validation. Swarm resource
+names must fit its 64-character limit; retain existing valid names when shortening
+long identities. Convergence normalizes only Docker's service/task default-field
+differences while keeping application configuration and credentials exact.
+Create token/probe helpers with --detach=true and use the bounded task checks;
+synchronous Docker service creation can hang after a one-shot probe completes.
+Verify selected images with pulls through the target daemon, which checks its
+platform and registry access; local CLI manifest inspection may reject OCI indexes
+or hit a separate registry rate limit.
+Compose config already escapes shell dollars for its next loader. Do not escape
+the rendered document a second time; test command substitution, variables, PID
+expansion and literal environment dollars through the stack interpolation step.
 Production uses verified TLS and per-client secrets. The broker-only legacy HTTP
 listener is permitted solely during migration of an existing tokenless stack.
+`make broker-pki` automates a dedicated internal CA and Swarm TLS secret for new
+installations using Python 3/OpenSSL 3, sharing the deployment lock. It preserves
+existing inputs and refuses implicit key rotation or missing-secret replacement.
+Keep CA keys under ignored pki/ with owner-only permissions; server keys pass
+directly to Swarm stdin. Test setup with tests/test_broker_pki.py and real OpenSSL.
 Use tests/test_deploy.py with its isolated fake Docker; never validate by deploying.
 Legacy app adapter layers are built by Dockerfile.broker-app; /broker-start bypasses
 unsafe upstream discovery while retaining their binaries and other arguments.

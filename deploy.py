@@ -160,6 +160,7 @@ class Deployment:
         services = doc['services']
         b = services['database-broker']
         b.setdefault('environment', {})['AUTH_MODE'] = self.mode if enforcement is None else enforcement
+        b.setdefault('deploy', {}).setdefault('update_config', {})['failure_action'] = 'pause'
         if old_broker:
             # Consumer preparation must not change any existing broker configuration.
             doc['services']['database-broker'] = old_broker
@@ -494,6 +495,10 @@ class Deployment:
             # Production inputs must be provisioned by the operator PKI before rollout.
             self.ca = read_public(self.env.get('BROKER_CA_FILE', './pki/broker-ca.pem'))
             self.cert = read_public(self.env.get('BROKER_TLS_CERT_FILE', './pki/broker.pem'))
+            public_pki = json.dumps({'ca': self.ca.decode('ascii'), 'cert': self.cert.decode('ascii')}).encode()
+            self.docker.run('run', '--rm', '-i', '--network', 'none', '--read-only', '--log-driver', 'none',
+                            '--entrypoint', '/broker-token', image, 'validate-tls', '--hostname', urlsplit(origin).hostname,
+                            data=public_pki)
             secret_name = self.env.get('BROKER_TLS_KEY_SECRET', '')
             if not secret_name or not self.docker.inspect('secret', secret_name):
                 raise Failure('Operator-managed broker TLS key secret is required')
@@ -514,6 +519,11 @@ class Deployment:
         previous, enforced = self.preflight(base)
         try:
             self.acquire()
+            # Preflight may overlap another deployment. Classification must be
+            # refreshed under the distributed lock before choosing migration mode.
+            previous, enforced = self.previous_broker()
+            if self.mode == 'none' and enforced:
+                raise Failure('Refusing to downgrade an enforcing installation to none')
             self.announce('prepare reusable resources')
             for name in ('postgres_password', 'valkey_password'):
                 if not self.docker.inspect('secret', name):
@@ -569,7 +579,7 @@ class Deployment:
         client = next((c for c in sorted(self.tokens) if c in APPS), None)
         mounts = []
         probe_args = ['probe', '--origin', self.env.get('BROKER_ORIGIN', 'https://database-broker:8443'),
-                      '--ca-file', '/ca.pem', '--addresses', ','.join(sorted(set(addresses)))]
+                      '--ca-file', '/ca.pem', '--addresses', ','.join(sorted(set(addresses))), '--max-wait', str(self.timeout) + 's']
         if client and not readiness_only:
             mounts = ['--secret', 'source=' + self.tokens[client] + ',target=token,mode=0400']
             probe_args += ['--token-file', '/run/secrets/token', '--client', client]
@@ -627,7 +637,7 @@ def main():
         stage = deployment.stage if deployment else 'configuration'
         print('Deployment stopped during ' + stage + ': ' + str(error) + '. No automatic authentication downgrade.', file=sys.stderr)
         return 1
-    except (ValueError, KeyError, TypeError, OSError):
+    except (ValueError, KeyError, TypeError, OSError, UnicodeError):
         # Only controlled messages are allowed; JSON/key errors could include data.
         stage = deployment.stage if deployment else 'configuration'
         print('Deployment stopped during ' + stage + '; no automatic authentication downgrade. Check public inputs and Swarm resource ownership.', file=sys.stderr)

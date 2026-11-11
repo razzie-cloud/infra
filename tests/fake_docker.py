@@ -48,6 +48,8 @@ if a[:2] in (['image', 'pull'], ['manifest', 'inspect']):
     done(code=1 if s.get('missing_image') else 0)
 if a[0] == 'run':
     data = sys.stdin.buffer.read()
+    if 'validate-tls' in a:
+        done(code=1 if s.get('invalid_pki') else 0)
     done(json.loads(data))
 if a[0] in ('secret', 'config'):
     kind, op = a[:2]
@@ -69,6 +71,11 @@ if a[0] in ('secret', 'config'):
         s['sequence'] = s.get('sequence', 0) + 1
         obj = {'ID': kind + '-' + str(s['sequence']), 'Spec': {'Name': name, 'Labels': resource_labels()}}
         bucket[name] = obj
+        if kind == 'config' and name.endswith('-broker-deployment-lock') and s.get('promote_on_lock'):
+            # Another deploy finishes between this run's preflight and lock acquisition.
+            service = s['service']['custom-stack_database-broker']
+            service['Spec']['Labels']["io.razzie.broker.enforced"] = 'token'
+            service['Spec']['TaskTemplate']['ContainerSpec']['Env'] = ['AUTH_MODE=token']
         if kind == 'secret':
             s.setdefault('secret_input_lengths', []).append(len(data))
         done(obj['ID'])

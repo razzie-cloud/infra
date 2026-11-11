@@ -158,6 +158,23 @@ class DeploymentTest(unittest.TestCase):
         self.run_deploy(False)
         self.assertEqual(len(self.state['deploys']), before)
 
+    def test_mode_is_rechecked_under_lock_after_other_deploy(self):
+        self.state['service'] = {'custom-stack_database-broker': {'ID': 'old', 'Spec': {'Labels': {},
+            'TaskTemplate': {'ContainerSpec': {'Image': 'old-broker', 'Env': []}}}}}
+        self.state['promote_on_lock'] = True
+        self.run_deploy()
+        self.assertEqual(len(self.state['deploys']), 2)
+        self.assertTrue(all(d['services']['database-broker']['environment']['AUTH_MODE'] == 'token' for d in self.state['deploys']))
+
+    def test_none_cannot_downgrade_a_deploy_finishing_during_preflight(self):
+        self.env['BROKER_AUTH_MODE'] = 'none'
+        self.state['service'] = {'custom-stack_database-broker': {'ID': 'old', 'Spec': {'Labels': {},
+            'TaskTemplate': {'ContainerSpec': {'Image': 'old-broker', 'Env': []}}}}}
+        self.state['promote_on_lock'] = True
+        self.run_deploy(False)
+        self.assertNotIn('deploys', self.state)
+        self.assertNotIn('secret_input_lengths', self.state)
+
     def test_none_has_no_authentication_resources(self):
         self.env.update(BROKER_AUTH_MODE='none', BROKER_CLIENTS_FILE='/missing', BROKER_TLS_KEY_SECRET='', BROKER_CA_FILE='/missing')
         self.run_deploy()
@@ -180,10 +197,12 @@ class DeploymentTest(unittest.TestCase):
         self.assertIn('razzie-cloud_database-broker', self.state['service'])
 
     def test_invalid_preflight_does_not_mutate_swarm(self):
-        self.state['missing_image'] = True
-        self.run_deploy(False)
-        self.assertNotIn('config', self.state)
-        self.assertNotIn('secret_input_lengths', self.state)
+        for failure in ('missing_image', 'invalid_pki'):
+            self.state[failure] = True
+            self.run_deploy(False)
+            self.assertNotIn('config', self.state)
+            self.assertNotIn('secret_input_lengths', self.state)
+            del self.state[failure]
 
     def test_update_failure_stops_with_cleanup(self):
         self.state['pause_rollout'] = True

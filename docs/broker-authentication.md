@@ -53,7 +53,9 @@ Every Docker command targets DOCKER_CONTEXT; no global context changes occur.
 `make config` validates interpolation and final reference structure offline with
 placeholder auth resource names. Deployment additionally validates policy with
 /broker-token from the selected image, verifies the target is an active manager,
-checks PKI inputs and image manifests, and validates the final stack before rollout.
+checks PKI certificate validity/hostname/chain with the same image and verifies
+image manifests, then validates the final stack before rollout. Deployed mode is
+rechecked under the lock so overlapping preflights cannot trigger a stale downgrade.
 
 An atomically created stack-scoped Swarm config serializes deployment across
 operator hosts. A concurrent deploy fails safely. A hard-killed deployment can
@@ -139,7 +141,7 @@ Bearer tokens remain replayable within their current grants if stolen.
 ## Verification
 
 `python3 -m unittest discover -s tests -v` runs isolated fake-Docker deployment
-checks (13 cases): bootstrap/redeploy, permission-only changes, added clients, failed/truncated
+checks (15 cases): bootstrap/redeploy, permission-only changes, added clients, failed/truncated
 or interrupted generation, partial state, lost/replaced masters, custom remote
 context, rotations/revocation, staged upgrades, ownership conflicts and explicit
 none mode. Fixtures consume secret stdin without retaining it. `bash -n deploy.sh`

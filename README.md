@@ -17,7 +17,7 @@ and after page changes.
 ## First deployment
 
 You need an initialized Docker Swarm, a Docker context pointing at it, Docker
-Compose, Bash, and Make. Point DNS at the ingress host and allow ports 80/443.
+Compose, Python 3, Bash, and Make. Point DNS at the ingress host and allow ports 80/443.
 The default context is `razcloud` and stack name is `razzie-cloud`.
 
 ```sh
@@ -61,8 +61,14 @@ Run from this directory:
 
 ```sh
 make config   # Validate configuration without deploying
-make deploy   # Create missing database secrets and deploy the stack
+make deploy   # Prepare scoped secrets, validate TLS and roll out the stack
 ```
+
+Before secure deployment, prepare the operator PKI and publish the two legacy-app
+adapter images described in [scoped broker deployment](docs/broker-authentication.md).
+Token mode is the default. `make deploy` prepares Swarm-only keys and per-app tokens,
+performs staged migration for an existing tokenless stack, and checks convergence.
+The guide covers explicit none mode, rotation, revocation and recovery.
 
 Gateway, broker, and Notes run two replicas each.
 

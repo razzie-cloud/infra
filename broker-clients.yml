@@ -1,0 +1,31 @@
+version: 1
+deployment_id: razzie-cloud-production
+key_id: k1
+clients:
+  access_gateway:
+    generation: 1
+    allow:
+      - adapter: postgres
+        instance: access_gateway
+      - adapter: valkey
+        instance: access_gateway
+  files:
+    generation: 1
+    allow:
+      - adapter: postgres
+        instance: files
+  notes:
+    generation: 1
+    allow:
+      - adapter: postgres
+        instance: notes
+  razchess:
+    generation: 1
+    allow:
+      - adapter: valkey
+        instance: razchess
+  geoip_server:
+    generation: 1
+    allow:
+      - adapter: valkey
+        instance: geoip_server

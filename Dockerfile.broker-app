@@ -1,0 +1,7 @@
+# Keep upstream application layers; only add the audited startup adapter.
+ARG BROKER_IMAGE
+ARG APP_IMAGE
+FROM ${BROKER_IMAGE} AS broker
+FROM ${APP_IMAGE}
+COPY --from=broker /broker-start /broker-start
+ENTRYPOINT ["/broker-start"]

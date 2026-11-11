@@ -149,3 +149,13 @@ also require signed admin=true, preserving the stripped/reissued marker. Public
 share hosts strip the token and keep capability access. Key discovery uses the
 private network; public app ORIGIN remains the audience. Expired verification
 keys never grant access during a gateway outage.
+
+Scoped broker deployment defaults to BROKER_AUTH_MODE=token. Read
+[broker-authentication.md](docs/broker-authentication.md) before changing deploy.py,
+policy or secret lifecycle. deploy.sh delegates to Python 3; make config validates
+rendered references offline, deploy validates policy with the selected broker image.
+Production uses verified TLS and per-client secrets. The broker-only legacy HTTP
+listener is permitted solely during migration of an existing tokenless stack.
+Use tests/test_deploy.py with its isolated fake Docker; never validate by deploying.
+Legacy app adapter layers are built by Dockerfile.broker-app; /broker-start bypasses
+unsafe upstream discovery while retaining their binaries and other arguments.

@@ -105,6 +105,7 @@ services:
       - postgres_password
       - valkey_password
     environment:
+      AUTH_MODE: ${BROKER_AUTH_MODE:-token}
       POSTGRES_URI: postgresql://razcloud@postgres:5432/razcloud?connect_timeout=5
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       VALKEY_URI: redis://valkey:6379/0

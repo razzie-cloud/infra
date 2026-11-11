@@ -34,13 +34,14 @@ With the Docker Compose plugin, configuration can also be checked without a
 daemon using `docker compose --env-file .env -f docker-stack.yml config --quiet`.
 
 `deploy.sh` defaults to Docker context `razcloud` and stack `razzie-cloud`;
-override with `DOCKER_CONTEXT` and `STACK_NAME`. It validates the stack, preserves
-existing external database secrets, and creates missing ones before deploying.
-It forwards the local Docker registry login to Swarm with `--with-registry-auth`,
-so nodes can pull private images such as the landing package. Authenticate to
-GHCR with an account that can pull the selected images before deploying.
-When called directly, it needs exported or inline environment settings: Swarm
-does not load `.env` automatically. One stack file includes all services.
+override through Make or exported environment settings. It invokes the Python 3
+helper to validate the selected policy/image/manager, prepare scoped Swarm secrets,
+retain existing database passwords, and roll out in bounded stages with
+`--with-registry-auth`. Use the maintained entrypoint rather than deploying the
+base stack directly. See [broker authentication](broker-authentication.md) for
+PKI inputs, adapter images, mode selection, migration, rotation and recovery.
+The normal `make config` check works offline; deploy also validates policy with
+the selected broker image. Never put secret values in .env.
 
 The public homepage at `razzie.cloud` proxies to the landing service on port 8080
 without forward authentication. Point the apex DNS record at the Caddy ingress
@@ -94,12 +95,11 @@ volume and let its automatic retries complete.
 RazChess and GeoIP join both overlays and discover separate Valkey databases
 through the private broker paths `/v1/instances/valkey/razchess/uri` and
 `/v1/instances/valkey/geoip_server/uri`. UUID only joins `web` and needs no database.
-No application password, new secret, or application volume is required.
-The entrypoint waits for broker `/readyz` before invoking each Redis client's
-one-time discovery; Swarm does not order service startup. If discovery or the
-initial Redis connection still fails, these apps can continue without persistence
-or caching. Check startup logs and restart affected tasks once the backend is
-healthy. RazChess runs one replica because active game sessions live in memory.
+Each app receives its own derived Swarm token, with exact policy grants.
+The adapter image keeps the upstream application layers and adds /broker-start,
+which uses bounded verified-TLS discovery and checks Redis before exec. Failure
+stops startup; it cannot silently select memory through upstream discovery.
+RazChess runs one replica because active game sessions live in memory.
 
 The default RazChess release enumerates saved sessions with `SCAN` in
 [`LoadSessions`](https://github.com/razzie/razchess/blob/v1.12/pkg/razchess/db.go),

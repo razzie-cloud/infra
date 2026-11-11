@@ -1,0 +1,16 @@
+{
+  "apps": [
+    {
+      "name": "Files",
+      "subdomain": "files",
+      "description": "Browse, upload, and share your files.",
+      "icon": "files"
+    },
+    {
+      "name": "Notes",
+      "subdomain": "notes",
+      "description": "Write, find, and keep your Markdown notes.",
+      "icon": "notes"
+    }
+  ]
+}

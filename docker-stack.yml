@@ -20,11 +20,19 @@ volumes:
   caddy_config:
   dozzle_data:
 
+configs:
+  landing_apps:
+    file: ${LANDING_APPS_FILE:-./landing-apps.json}
+
 services:
   landing:
     image: ghcr.io/razzie-cloud/landing:${LANDING_IMAGE_TAG:?Set LANDING_IMAGE_TAG in infra/.env}
     environment:
       DOMAIN: ${DOMAIN:-razzie.cloud}
+      APPS_CONFIG_FILE: /etc/landing/apps.json
+    configs:
+      - source: landing_apps
+        target: /etc/landing/apps.json
     networks:
       - web
     deploy:
@@ -121,6 +129,7 @@ services:
       POSTGRES_URI_FROM: http://database-broker:8080/v1/instances/postgres/access_gateway/uri
       REDIS_URI_FROM: http://database-broker:8080/v1/instances/valkey/access_gateway/uri
       ORIGIN: https://auth.${DOMAIN:-razzie.cloud}
+      LANDING_ORIGIN: https://${DOMAIN:-razzie.cloud}
       RP_ID: auth.${DOMAIN:-razzie.cloud}
       RP_NAME: Razzie Cloud
       # Gateway ports are private; accept client IPs from the overlay proxy.
@@ -142,6 +151,7 @@ services:
     environment:
       POSTGRES_URI_FROM: http://database-broker:8080/v1/instances/postgres/files/uri
       ORIGIN: https://files.${DOMAIN:-razzie.cloud}
+      LANDING_ORIGIN: https://${DOMAIN:-razzie.cloud}
       SHARE_ORIGIN: https://shared-files.${DOMAIN:-razzie.cloud}
       CAST_SHARE_TTL: ${CAST_SHARE_TTL:-6h}
     networks:
@@ -174,6 +184,7 @@ services:
     environment:
       POSTGRES_URI_FROM: http://database-broker:8080/v1/instances/postgres/notes/uri
       ORIGIN: https://notes.${DOMAIN:-razzie.cloud}
+      LANDING_ORIGIN: https://${DOMAIN:-razzie.cloud}
       S3_ALLOWED_PRIVATE_ENDPOINTS: ${NOTES_S3_ALLOWED_PRIVATE_ENDPOINTS:-}
       S3_ALLOW_HTTP: ${NOTES_S3_ALLOW_HTTP:-false}
       SCAN_INTERVAL: ${NOTES_SCAN_INTERVAL:-5m}

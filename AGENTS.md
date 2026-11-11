@@ -28,12 +28,13 @@
   RazChess, and GeoIP join `internal` and `web`; Caddy, Dozzle, whoami, UUID,
   0x40hues, and the public landing service join `web`. Only Caddy publishes
   ingress ports (80/443). Keep databases and broker APIs private.
-- `landing/` owns the static homepage image. Build and publish
+- The separate `razzie-cloud/landing` repository owns the homepage image. Build and publish
   `ghcr.io/razzie-cloud/landing` before selecting `LANDING_IMAGE_TAG` in `.env`;
   export it in the Makefile. Swarm serves it at `razzie.cloud` without auth.
-  Copy only the page, styles, and assets into the image; do not publish previews
-  or repository documentation. Local Compose builds the same Dockerfile with
-  local Files/auth origins and serves it through Caddy at `localhost`.
+  The image serves only generated HTML, styles and assets; config and source
+  stay outside the web root. Local Compose builds the landing submodule with
+  runtime localhost settings. `LANDING_APPS_FILE` supplies the optional JSON app
+  list through a Docker config; `landing-apps.json` includes Files and Notes.
 - Valkey requires 9.1.0+ with database ACLs and runs standalone. Database 0
   stores broker metadata; applications use the other 15 databases. Both AOF
   data and `/data/users.acl` persist in `valkey_data`; use a broker image that
@@ -77,7 +78,7 @@
   ranges because its ports are reachable only through the Docker networks.
   `DOMAIN` (default `razzie.cloud`) drives every public hostname and auth origin;
   export it in the Makefile. The landing image renders links and metadata from
-  this setting at startup; preserve local Compose's build-time origin overrides.
+  this setting at startup; preserve local Compose's runtime scheme and port settings.
 - Swarm ignores `depends_on`. Preserve restart policies, the broker's bounded
   PostgreSQL connection timeout, and its cached `/readyz` health check on
   `SERVICE_PORT` (default `8080`). Gateway and files inherit `/readyz` probes
@@ -128,3 +129,11 @@
   `system.stateVersion` unless explicitly migrating the host. `nixos/harness.nix`
   is separate and is not imported by the main configuration.
 - Report exactly which checks ran and any environment limitations.
+
+The landing app list is a Docker config sourced from `LANDING_APPS_FILE`
+(default `./landing-apps.json`). The example lists Files and Notes; use an empty
+`apps` array for Sign in alone. See the [landing config reference](https://github.com/razzie-cloud/landing#configuration)
+for fields and icon presets. Editing a Docker config requires a new config name
+for an existing Swarm deployment; rename `landing_apps` in both config declaration
+and service reference before deploying a changed file. `DOMAIN` also supplies
+`LANDING_ORIGIN` to the gateway, Files and Notes for their cloud-home links.

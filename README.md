@@ -9,7 +9,7 @@ administrator-only Dozzle logs, and a whoami demo. Optional
 To explore the platform on your own machine first, use the
 [Razzie Cloud local demo](https://github.com/razzie-cloud/.github#try-it-locally).
 
-The public [landing page](landing/README.md) is served at `razzie.cloud`, with
+The public [landing page](https://github.com/razzie-cloud/landing) is served at `razzie.cloud`, with
 links to GitHub, Files, Notes, and sign-in. Its assets are packaged in a static Caddy
 image; build and publish it before the first deployment and after page changes.
 
@@ -29,7 +29,7 @@ Set the four platform service image tags in `.env` to published releases. Keep
 image selections in this ignored file. In the parent checkout, `make latest-tags` can
 select stable platform service tags; confirm their images are published before
 deploying. Also set `LANDING_IMAGE_TAG` to a published homepage image built from
-`landing/`; see its [build instructions](landing/README.md#swarm-image).
+the independent landing repository; see its [build instructions](https://github.com/razzie-cloud/landing#releases).
 `make latest-tags` preserves that selection and only discovers the four Go service tags.
 RazChess, UUID, GeoIP and 0x40hues use fixed defaults from the stack; their
 image tag variables in `.env.example` allow explicit overrides and are left
@@ -46,8 +46,8 @@ The sharing hostname stays separate from management and outside the gateway
 allowlist. You can also override it with `make config DOMAIN=example.com` or
 `make deploy DOMAIN=example.com`. Set `DOCKER_CONTEXT` in `.env` for your Swarm.
 
-Before deployment, select a published `NOTES_IMAGE_TAG` and rebuild/publish the
-landing image for its Notes link. Notes users add their own S3 connections and
+Before deployment, select a published `NOTES_IMAGE_TAG` and a landing image supporting app configuration.
+The provided `landing-apps.json` lists Notes and Files. Notes users add their own S3 connections and
 optionally encrypted bucket/prefix notebooks in the Storage UI, following Files;
 there are no Notes-specific provider Docker secrets or credential environment
 variables. PostgreSQL stores durable connections and crypt passwords alongside
@@ -73,3 +73,11 @@ configuration, S3 credentials, and crypt recovery passwords; file contents remai
 
 See [operations](docs/operations.md) for environment overrides, routing, Dozzle,
 and upgrade details, or [AGENTS.md](AGENTS.md) for deployment invariants and checks.
+
+The landing app list is a Docker config sourced from `LANDING_APPS_FILE`
+(default `./landing-apps.json`). The example lists Files and Notes; use an empty
+`apps` array for Sign in alone. See the [landing config reference](https://github.com/razzie-cloud/landing#configuration)
+for fields and icon presets. Editing a Docker config requires a new config name
+for an existing Swarm deployment; rename `landing_apps` in both config declaration
+and service reference before deploying a changed file. `DOMAIN` also supplies
+`LANDING_ORIGIN` to the gateway, Files and Notes for their cloud-home links.

@@ -5,13 +5,13 @@ See the [README](../README.md) for prerequisites and first deployment, and
 
 ## Image selection and deployment
 
-Copy `.env.example` to `.env` and set the three platform service image tags to
+Copy `.env.example` to `.env` and set the four platform service image tags to
 published releases. The example contains third-party image tags and operator defaults;
 RazChess, UUID, GeoIP and 0x40hues have fixed defaults with optional image tag overrides.
 Other image tags must be supplied explicitly. Keep platform release selections
 in the ignored `.env` rather than updating stack files or documentation for each release.
 Set `LANDING_IMAGE_TAG` to a published `ghcr.io/razzie-cloud/landing` image built
-from this repository's `landing/` directory. The [landing-page guide](../landing/README.md#swarm-image)
+from the independent `razzie-cloud/landing` repository. The [landing-page guide](https://github.com/razzie-cloud/landing#releases)
 covers building and publishing it. Page and logo updates need a new image tag;
 Swarm does not build images or read this checkout's assets from a bind mount.
 In a parent Razzie Cloud checkout, `make latest-tags` discovers remote stable platform
@@ -196,3 +196,11 @@ node mounts its local Docker socket and has its own `dozzle_data` volume for
 settings; settings are not shared between nodes. The read-only socket mount does
 not restrict Docker API operations. Dozzle and the overlay must remain trusted;
 do not publish its port or expose the Docker socket.
+
+The landing app list is a Docker config sourced from `LANDING_APPS_FILE`
+(default `./landing-apps.json`). The example lists Files and Notes; use an empty
+`apps` array for Sign in alone. See the [landing config reference](https://github.com/razzie-cloud/landing#configuration)
+for fields and icon presets. Editing a Docker config requires a new config name
+for an existing Swarm deployment; rename `landing_apps` in both config declaration
+and service reference before deploying a changed file. `DOMAIN` also supplies
+`LANDING_ORIGIN` to the gateway, Files and Notes for their cloud-home links.

@@ -155,6 +155,7 @@ services:
       ORIGIN: https://files.${DOMAIN:-razzie.cloud}
       LANDING_ORIGIN: https://${DOMAIN:-razzie.cloud}
       SHARE_ORIGIN: https://shared-files.${DOMAIN:-razzie.cloud}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-10737418240}
       CAST_SHARE_TTL: ${CAST_SHARE_TTL:-6h}
     networks:
       - internal

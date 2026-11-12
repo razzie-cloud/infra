@@ -21,7 +21,7 @@ volumes:
   dozzle_data:
 
 configs:
-  landing_apps:
+  landing_apps_v2:
     file: ${LANDING_APPS_FILE:-./landing-apps.json}
 
 services:
@@ -31,7 +31,7 @@ services:
       DOMAIN: ${DOMAIN:-razzie.cloud}
       APPS_CONFIG_FILE: /etc/landing/apps.json
     configs:
-      - source: landing_apps
+      - source: landing_apps_v2
         target: /etc/landing/apps.json
     networks:
       - web

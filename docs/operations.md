@@ -204,11 +204,13 @@ not restrict Docker API operations. Dozzle and the overlay must remain trusted;
 do not publish its port or expose the Docker socket.
 
 The landing app list is a Docker config sourced from `LANDING_APPS_FILE`
-(default `./landing-apps.json`). The example lists Files and Notes; use an empty
+(default `./landing-apps.json`). The example lists Files, Notes, and Logs; use an empty
 `apps` array for Sign in alone. See the [landing config reference](https://github.com/razzie-cloud/landing#configuration)
 for fields and icon presets. Editing a Docker config requires a new config name
-for an existing Swarm deployment; rename `landing_apps` in both config declaration
-and service reference before deploying a changed file. `DOMAIN` also supplies
+for an existing Swarm deployment; rename `landing_apps_v2` in both config declaration
+and service reference before deploying another changed file. The public homepage shows
+the Logs link to everyone; Dozzle remains protected by gateway admin authorization.
+`DOMAIN` also supplies
 `LANDING_ORIGIN` to the gateway, Files and Notes for their cloud-home links.
 
 ## Signed identity between services

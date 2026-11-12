@@ -37,7 +37,7 @@
   only the public page/assets and health endpoints are served. Config/source
   stay private, and the container runs as an unprivileged user. Local Compose
   builds the landing submodule with runtime localhost settings. `LANDING_APPS_FILE` supplies the optional JSON app
-  list through a Docker config; `landing-apps.json` includes Files and Notes.
+  list through a Docker config; `landing-apps.json` includes Files, Notes, and Logs.
 - Valkey requires 9.1.0+ with database ACLs and runs standalone. Database 0
   stores broker metadata; applications use the other 15 databases. Both AOF
   data and `/data/users.acl` persist in `valkey_data`; use a broker image that
@@ -134,11 +134,13 @@
 - Report exactly which checks ran and any environment limitations.
 
 The landing app list is a Docker config sourced from `LANDING_APPS_FILE`
-(default `./landing-apps.json`). The example lists Files and Notes; use an empty
+(default `./landing-apps.json`). The example lists Files, Notes, and Logs; use an empty
 `apps` array for Sign in alone. See the [landing config reference](https://github.com/razzie-cloud/landing#configuration)
 for fields and icon presets. Editing a Docker config requires a new config name
-for an existing Swarm deployment; rename `landing_apps` in both config declaration
-and service reference before deploying a changed file. `DOMAIN` also supplies
+for an existing Swarm deployment; rename `landing_apps_v2` in both config declaration
+and service reference before deploying another changed file. The public homepage shows
+the Logs link to everyone; Dozzle remains protected by gateway admin authorization.
+`DOMAIN` also supplies
 `LANDING_ORIGIN` to the gateway, Files and Notes for their cloud-home links.
 
 Files/Notes use ACCESS_GATEWAY_URL=http://access-gateway:8080 for startup public-key

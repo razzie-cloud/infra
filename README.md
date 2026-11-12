@@ -10,7 +10,7 @@ To explore the platform on your own machine first, use the
 [Razzie Cloud local demo](https://github.com/razzie-cloud/.github#try-it-locally).
 
 The public [landing page](https://github.com/razzie-cloud/landing) is served at `razzie.cloud`, with
-links to GitHub, Files, Notes, and sign-in. Its page and assets are embedded in a
+links to GitHub, Files, Notes, Logs, and sign-in. Its page and assets are embedded in a
 standalone Go HTTP service image; build and publish it before the first deployment
 and after page changes.
 
@@ -47,7 +47,7 @@ allowlist. You can also override it with `make config DOMAIN=example.com` or
 `make deploy DOMAIN=example.com`. Set `DOCKER_CONTEXT` in `.env` for your Swarm.
 
 Before deployment, select a published `NOTES_IMAGE_TAG` and a landing image supporting app configuration.
-The provided `landing-apps.json` lists Notes and Files. Notes users add their own S3 connections and
+The provided `landing-apps.json` lists Files, Notes, and administrator-only Logs. Notes users add their own S3 connections and
 optionally encrypted bucket/prefix notebooks in the Storage UI, following Files;
 there are no Notes-specific provider Docker secrets or credential environment
 variables. PostgreSQL stores durable connections and crypt passwords alongside
@@ -85,9 +85,11 @@ See [operations](docs/operations.md) for environment overrides, routing, Dozzle,
 and upgrade details, or [AGENTS.md](AGENTS.md) for deployment invariants and checks.
 
 The landing app list is a Docker config sourced from `LANDING_APPS_FILE`
-(default `./landing-apps.json`). The example lists Files and Notes; use an empty
+(default `./landing-apps.json`). The example lists Files, Notes, and Logs; use an empty
 `apps` array for Sign in alone. See the [landing config reference](https://github.com/razzie-cloud/landing#configuration)
 for fields and icon presets. Editing a Docker config requires a new config name
-for an existing Swarm deployment; rename `landing_apps` in both config declaration
-and service reference before deploying a changed file. `DOMAIN` also supplies
+for an existing Swarm deployment; rename `landing_apps_v2` in both config declaration
+and service reference before deploying another changed file. The Logs link is visible
+to everyone on the public homepage; gateway admin authorization protects access to Dozzle.
+`DOMAIN` also supplies
 `LANDING_ORIGIN` to the gateway, Files and Notes for their cloud-home links.

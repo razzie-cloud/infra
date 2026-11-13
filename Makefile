@@ -27,7 +27,7 @@ help:
 	@printf '%s\n' 'Copy .env.example to .env and choose published service tags.' 'make broker-pki  Prepare a dedicated internal CA and broker TLS secret' 'make config  Validate and render the Swarm stack' 'make deploy  Create missing secrets and deploy the stack'
 
 broker-pki:
-	python3 ./prepare-broker-pki.py
+	bash ./deploy.sh --pki
 
 config:
 	bash ./deploy.sh --check

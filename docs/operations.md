@@ -27,7 +27,7 @@ make deploy   # Create missing secrets and deploy
 ```
 
 For a brand new secure stack, `make broker-pki` first prepares a dedicated internal
-CA, broker certificate and Swarm TLS secret. It requires Python 3/OpenSSL 3 and
+CA, broker certificate and Swarm TLS secret. It requires Go 1.27 and
 preserves existing inputs without rotation. An existing operator PKI remains
 supported. See [broker authentication](broker-authentication.md#images-and-tls)
 for paths, key custody and renewal.
@@ -40,7 +40,7 @@ With the Docker Compose plugin, configuration can also be checked without a
 daemon using `docker compose --env-file .env -f docker-stack.yml config --quiet`.
 
 `deploy.sh` defaults to Docker context `razcloud` and stack `razzie-cloud`;
-override through Make or exported environment settings. It invokes the Python 3
+override through Make or exported environment settings. It invokes the Go
 helper to validate the selected policy/image/manager, prepare scoped Swarm secrets,
 retain existing database passwords, and roll out in bounded stages with
 `--with-registry-auth`. Use the maintained entrypoint rather than deploying the

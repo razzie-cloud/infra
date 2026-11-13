@@ -32,7 +32,7 @@ pins and Git tags alone do not publish images. Upstream overrides require rebuil
 and publishing matching adapter layers, then selecting their full references.
 
 For a brand new installation, `make broker-pki` automates a dedicated internal CA,
-broker certificate and Swarm TLS key secret using Python 3 and OpenSSL 3. Run it
+broker certificate and Swarm TLS key secret using Go 1.27. Run it
 before deployment (`make broker-pki deploy` runs both in order). It honors the
 selected Docker context, deployment identity, BROKER_ORIGIN, BROKER_CA_FILE,
 BROKER_TLS_CERT_FILE and BROKER_TLS_KEY_SECRET. The CA private key defaults to
@@ -65,7 +65,7 @@ Isolated local Compose intentionally uses HTTP and independent development keys.
 
 ## Deployment lifecycle
 
-The helper needs Python 3 (standard library only), Bash, Make, Docker Compose and
+The helper needs Go 1.27 (standard library only), Bash, Make, Docker Compose and
 a Docker CLI providing `docker stack config`. DOCKER_CLI can select a compatible
 client by absolute path without changing the system installation or active context.
 Every Docker command targets DOCKER_CONTEXT; no global context changes occur.
@@ -164,8 +164,8 @@ Bearer tokens remain replayable within their current grants if stolen.
 
 ## Verification
 
-`python3 -m unittest discover -s tests -v` runs isolated fake-Docker deployment
-and real-OpenSSL PKI setup checks: bootstrap/redeploy, permission-only changes, added clients, failed/truncated
+`go test ./cmd/infra-helper -v` runs isolated fake-Docker deployment
+and Go PKI setup checks: bootstrap/redeploy, permission-only changes, added clients, failed/truncated
 or interrupted generation, partial state, lost/replaced masters, custom remote
 context, rotations/revocation, staged upgrades, ownership conflicts and explicit
 none mode, internal CA setup/reuse, interrupted certificate publication and missing

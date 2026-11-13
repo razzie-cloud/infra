@@ -17,7 +17,7 @@ and after page changes.
 ## First deployment
 
 You need an initialized Docker Swarm, a Docker context pointing at it, Docker
-Compose, Python 3, Bash, and Make. Point DNS at the ingress host and allow ports 80/443.
+Compose, Go 1.27, Bash, and Make. Point DNS at the ingress host and allow ports 80/443.
 The default context is `razcloud` and stack name is `razzie-cloud`.
 
 ```sh
@@ -65,7 +65,7 @@ make deploy   # Prepare scoped secrets, validate TLS and roll out the stack
 ```
 
 For a brand new deployment, `make broker-pki` prepares a dedicated internal CA,
-broker certificate and Swarm TLS secret (Python 3 and OpenSSL 3 required). It
+broker certificate and Swarm TLS secret (Go 1.27 required). It
 reuses existing inputs without rotating them; keep the ignored CA private key
 secure for renewal. An existing operator PKI can also supply these inputs.
 Before secure deployment, prepare the PKI and publish the two legacy-app

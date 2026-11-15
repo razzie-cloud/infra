@@ -11,6 +11,15 @@ import (
 
 func taskSpec(spec object) object {
 	s := clone(spec)
+	if s["Placement"] != nil {
+		p := obj(s["Placement"])
+		// Registry platform metadata can change without replacing running tasks.
+		// Keep placement constraints/preferences and all container settings exact.
+		delete(p, "Platforms")
+		if len(p) == 0 {
+			delete(s, "Placement")
+		}
+	}
 	if s["Runtime"] == nil {
 		s["Runtime"] = "container"
 	}
@@ -176,13 +185,14 @@ func (d *deployment) rollout(doc object, stage string, only []string) {
 }
 func (d *deployment) converge(services object) {
 	end := time.Now().Add(d.timeout)
+	lastWaiting := ""
 	for time.Now().Before(end) {
-		ready := true
+		var pending []string
 		for _, name := range keys(services) {
 			desired := obj(services[name])
 			actual := d.docker.inspect("service", d.stack+"_"+name)
 			if actual == nil {
-				ready = false
+				pending = append(pending, name+" (service unavailable)")
 				continue
 			}
 			update := str(obj(actual["UpdateStatus"])["State"])
@@ -193,7 +203,8 @@ func (d *deployment) converge(services object) {
 			spec := obj(actual["Spec"])
 			template := obj(spec["TaskTemplate"])
 			if strings.Split(str(obj(template["ContainerSpec"])["Image"]), "@")[0] != strings.Split(str(desired["image"]), "@")[0] {
-				ready = false
+				pending = append(pending, name+" (image mismatch)")
+				continue
 			}
 			countValue := obj(obj(spec["Mode"])["Replicated"])["Replicas"]
 			count := 0
@@ -211,7 +222,7 @@ func (d *deployment) converge(services object) {
 					}
 				}
 				if !found {
-					ready = false
+					pending = append(pending, name+" (replica count unavailable)")
 					continue
 				}
 			} else {
@@ -239,15 +250,20 @@ func (d *deployment) converge(services object) {
 				running++
 			}
 			if running != count || update == "updating" {
-				ready = false
+				pending = append(pending, fmt.Sprintf("%s (%d/%d ready)", name, running, count))
 			}
 		}
-		if ready {
+		if len(pending) == 0 {
 			return
+		}
+		waiting := strings.Join(pending, ", ")
+		if waiting != lastWaiting {
+			fmt.Println("Waiting for services: " + waiting)
+			lastWaiting = waiting
 		}
 		d.pause(2 * time.Second)
 	}
-	fail("Readiness/convergence deadline exceeded")
+	fail("Readiness/convergence deadline exceeded; waiting for: " + lastWaiting)
 }
 func (d *deployment) addresses(service, port string, requireRunning bool) []string {
 	var addresses []string

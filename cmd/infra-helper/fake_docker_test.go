@@ -212,6 +212,12 @@ func fakeDocker() int {
 			state = "pending"
 		}
 		spec := clone(obj(obj(o["Spec"])["TaskTemplate"]))
+		if s["stale_platform_metadata"] == true && o["helper"] != true {
+			at(spec, "Placement")["Platforms"] = []any{
+				object{"Architecture": "amd64", "OS": "linux"},
+				object{"Architecture": "unknown", "OS": "unknown"},
+			}
+		}
 		if s["swarm_default_fields"] == true && o["helper"] != true {
 			delete(spec, "Runtime")
 			delete(obj(spec["RestartPolicy"]), "Delay")

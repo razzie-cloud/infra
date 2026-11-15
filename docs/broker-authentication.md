@@ -85,6 +85,11 @@ is active before explicitly removing it. Helpers terminate after at most 15
 minutes. Ordinary failure, SIGINT, SIGHUP and SIGTERM remove only this run's helper
 and lock; helper cleanup also waits for manager containers to stop. Readiness and
 rollout waits are bounded by DEPLOY_TIMEOUT (5–900 seconds, default 300).
+Convergence prints pending service names and ready-task counts when they change,
+and includes the last pending services in a timeout error. It ignores differences
+in registry-derived Placement.Platforms metadata: Swarm can retain a running task
+when only this scheduling metadata changes. Image digests, container settings,
+secret/config references and explicit placement constraints still need to match.
 
 A fresh key is generated from 32 random bytes, passed directly to secret creation
 stdin, and never written locally, logged or exported. The versioned master secret

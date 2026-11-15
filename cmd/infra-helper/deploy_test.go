@@ -243,12 +243,71 @@ func TestShellEscapesOnce(t *testing.T) {
 }
 func TestSwarmDefaultsAndStaleTasks(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) { f := newFixture(t); f.state["swarm_default_fields"] = true; f.execute(true) })
+	t.Run("platform metadata", func(t *testing.T) {
+		f := newFixture(t)
+		f.state["stale_platform_metadata"] = true
+		f.execute(true)
+	})
 	t.Run("stale", func(t *testing.T) {
 		f := newFixture(t)
 		f.state["swarm_default_fields"] = true
+		f.state["stale_platform_metadata"] = true
 		f.state["stale_task"] = true
-		f.execute(false)
+		output := f.execute(false)
+		if !strings.Contains(output, "Waiting for services: database-broker (0/1 ready)") ||
+			!strings.Contains(output, "deadline exceeded; waiting for: database-broker") {
+			t.Fatalf("missing convergence diagnostics: %s", output)
+		}
 	})
+}
+
+func TestTaskSpecPreservesDeploymentSettings(t *testing.T) {
+	base := object{
+		"ContainerSpec": object{
+			"Image":   "test/app@sha256:current",
+			"Env":     []any{"SETTING=current"},
+			"Secrets": []any{object{"SecretID": "current-secret"}},
+			"Configs": []any{object{"ConfigID": "current-config"}},
+		},
+		"Placement": object{
+			"Constraints": []any{"node.role==manager"},
+			"Preferences": []any{object{"Spread": object{"SpreadDescriptor": "node.labels.zone"}}},
+			"MaxReplicas": 1,
+			"Platforms":   []any{object{"Architecture": "amd64", "OS": "linux"}},
+		},
+	}
+	platformOnly := clone(base)
+	obj(platformOnly["Placement"])["Platforms"] = []any{object{"Architecture": "arm64", "OS": "linux"}}
+	equal(t, taskSpec(base), taskSpec(platformOnly))
+	if obj(base["Placement"])["Platforms"] == nil {
+		t.Fatal("normalization modified input")
+	}
+	for _, field := range []string{"Image", "Env", "Secrets", "Configs", "Constraints", "Preferences", "MaxReplicas", "ForceUpdate"} {
+		t.Run(field, func(t *testing.T) {
+			changed := clone(platformOnly)
+			switch field {
+			case "Image":
+				obj(changed["ContainerSpec"])[field] = "test/app@sha256:other"
+			case "Env":
+				obj(changed["ContainerSpec"])[field] = []any{"SETTING=other"}
+			case "Secrets":
+				obj(changed["ContainerSpec"])[field] = []any{object{"SecretID": "other-secret"}}
+			case "Configs":
+				obj(changed["ContainerSpec"])[field] = []any{object{"ConfigID": "other-config"}}
+			case "Constraints":
+				obj(changed["Placement"])[field] = []any{"node.role==worker"}
+			case "Preferences":
+				obj(changed["Placement"])[field] = []any{object{"Spread": object{"SpreadDescriptor": "node.labels.rack"}}}
+			case "MaxReplicas":
+				obj(changed["Placement"])[field] = 2
+			case "ForceUpdate":
+				changed[field] = 1
+			}
+			if reflect.DeepEqual(taskSpec(base), taskSpec(changed)) {
+				t.Fatal("deployment change ignored alongside platform metadata")
+			}
+		})
+	}
 }
 func TestImagePulls(t *testing.T) {
 	f := newFixture(t)

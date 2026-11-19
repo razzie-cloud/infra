@@ -54,7 +54,7 @@ without forward authentication. Point the apex DNS record at the Caddy ingress
 host; Caddy manages its HTTPS certificate. It only joins the web overlay and has
 no database, secret, volume, or published port of its own.
 
-Other routes are `auth.razzie.cloud`, `files.razzie.cloud`,
+Other routes are `auth.razzie.cloud`, `home.razzie.cloud`, `files.razzie.cloud`,
 `shared-files.razzie.cloud`, `logs.razzie.cloud`, and `whoami.razzie.cloud`. Create DNS for the share
 hostname before deploying a sharing-capable files image. Its public `/s/*` and
 `/static/*` routes bypass forward auth; all other paths return 404. Management
@@ -211,7 +211,7 @@ for an existing Swarm deployment; rename `landing_apps_v2` in both config declar
 and service reference before deploying another changed file. The public homepage shows
 the Logs link to everyone; Dozzle remains protected by gateway admin authorization.
 `DOMAIN` also supplies
-`LANDING_ORIGIN` to the gateway, Files and Notes for their cloud-home links.
+`LANDING_ORIGIN=https://home.<DOMAIN>` to the gateway, Files and Notes for their cloud-home links.
 
 ## Signed identity between services
 
@@ -225,3 +225,13 @@ Redis/Valkey with overlapping public keys. Discovery outages cannot extend trust
 past cached expiry. Upgrade/publish the gateway before enabling verification in
 Files/Notes; select published images before rollout. See the gateway's
 [signed identity contract](https://github.com/razzie-cloud/access-gateway/blob/master/docs/reference.md#signed-proxy-identity).
+
+Authenticated Home is a second instance of the landing image at `home.<DOMAIN>`,
+using `PAGE_MODE=home`, `ACCESS_GATEWAY_URL` and the same app-list Docker config.
+All paths use ordered identity stripping, gateway forward auth and verified
+header copying. Home verifies PASETO request identity and renders a personal
+welcome plus gateway device/session links; health probes use the private port.
+Gateway `HOME_ORIGIN` makes Home the direct sign-in destination while pending
+app SSO flows retain their return destination. Authenticated services use Home
+for `LANDING_ORIGIN`; the apex stays public. Publish supporting gateway/landing
+images and create Home DNS before rollout; Home reuses `LANDING_IMAGE_TAG`.

@@ -141,7 +141,7 @@ for an existing Swarm deployment; rename `landing_apps_v2` in both config declar
 and service reference before deploying another changed file. The public homepage shows
 the Logs link to everyone; Dozzle remains protected by gateway admin authorization.
 `DOMAIN` also supplies
-`LANDING_ORIGIN` to the gateway, Files and Notes for their cloud-home links.
+`LANDING_ORIGIN=https://home.<DOMAIN>` to the gateway, Files and Notes for their cloud-home links.
 
 Files/Notes use ACCESS_GATEWAY_URL=http://access-gateway:8080 for startup public-key
 discovery and mandatory PASETO identity verification. Publish a supporting gateway
@@ -179,3 +179,13 @@ directly to Swarm stdin. Test setup with the PKI tests in cmd/infra-helper/pki_t
 Use the deployment tests in cmd/infra-helper/deploy_test.go with its isolated fake Docker; never validate by deploying.
 Legacy app adapter layers are built by Dockerfile.broker-app; /broker-start bypasses
 unsafe upstream discovery while retaining their binaries and other arguments.
+
+Authenticated Home is a second instance of the landing image at `home.<DOMAIN>`,
+using `PAGE_MODE=home`, `ACCESS_GATEWAY_URL` and the same app-list Docker config.
+All paths use ordered identity stripping, gateway forward auth and verified
+header copying. Home verifies PASETO request identity and renders a personal
+welcome plus gateway device/session links; health probes use the private port.
+Gateway `HOME_ORIGIN` makes Home the direct sign-in destination while pending
+app SSO flows retain their return destination. Authenticated services use Home
+for `LANDING_ORIGIN`; the apex stays public. Publish supporting gateway/landing
+images and create Home DNS before rollout; Home reuses `LANDING_IMAGE_TAG`.

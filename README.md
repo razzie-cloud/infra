@@ -36,7 +36,7 @@ image tag variables in `.env.example` allow explicit overrides and are left
 unchanged by `make latest-tags`.
 
 By default, the stack uses `razzie.cloud`, `auth.razzie.cloud`, `files.razzie.cloud`,
-`notes.razzie.cloud`, `shared-files.razzie.cloud`, `logs.razzie.cloud`, `whoami.razzie.cloud`,
+`home.razzie.cloud`, `notes.razzie.cloud`, `shared-files.razzie.cloud`, `logs.razzie.cloud`, `whoami.razzie.cloud`,
 `chess.razzie.cloud`, `uuid.razzie.cloud`, `geoip.razzie.cloud`, and `hues.razzie.cloud`.
 Set `DOMAIN=example.com` in `.env` to use another base hostname (no scheme, port,
 or trailing slash). It defaults to `razzie.cloud` and updates all Caddy host labels,
@@ -92,4 +92,14 @@ for an existing Swarm deployment; rename `landing_apps_v2` in both config declar
 and service reference before deploying another changed file. The Logs link is visible
 to everyone on the public homepage; gateway admin authorization protects access to Dozzle.
 `DOMAIN` also supplies
-`LANDING_ORIGIN` to the gateway, Files and Notes for their cloud-home links.
+`LANDING_ORIGIN=https://home.<DOMAIN>` to the gateway, Files and Notes for their cloud-home links.
+
+Authenticated Home is a second instance of the landing image at `home.<DOMAIN>`,
+using `PAGE_MODE=home`, `ACCESS_GATEWAY_URL` and the same app-list Docker config.
+All paths use ordered identity stripping, gateway forward auth and verified
+header copying. Home verifies PASETO request identity and renders a personal
+welcome plus gateway device/session links; health probes use the private port.
+Gateway `HOME_ORIGIN` makes Home the direct sign-in destination while pending
+app SSO flows retain their return destination. Authenticated services use Home
+for `LANDING_ORIGIN`; the apex stays public. Publish supporting gateway/landing
+images and create Home DNS before rollout; Home reuses `LANDING_IMAGE_TAG`.

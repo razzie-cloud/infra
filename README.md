@@ -91,8 +91,9 @@ for fields and icon presets. Editing a Docker config requires a new config name
 for an existing Swarm deployment; rename `landing_apps_v2` in both config declaration
 and service reference before deploying another changed file. The Logs link is visible
 to everyone on the public homepage; gateway admin authorization protects access to Dozzle.
-`DOMAIN` also supplies
-`LANDING_ORIGIN=https://home.<DOMAIN>` to the gateway, Files and Notes for their cloud-home links.
+`DOMAIN` also supplies Home as `LANDING_ORIGIN` to Files and Notes. Gateway
+uses the public apex for `LANDING_ORIGIN` and Home for `HOME_ORIGIN`, so its logo
+returns signed-out visitors to the public landing page.
 
 Authenticated Home is a second instance of the landing image at `home.<DOMAIN>`,
 using `PAGE_MODE=home`, `ACCESS_GATEWAY_URL` and the same app-list Docker config.
@@ -100,6 +101,7 @@ All paths use ordered identity stripping, gateway forward auth and verified
 header copying. Home verifies PASETO request identity and renders a personal
 welcome plus gateway device/session links; health probes use the private port.
 Gateway `HOME_ORIGIN` makes Home the direct sign-in destination while pending
-app SSO flows retain their return destination. Authenticated services use Home
-for `LANDING_ORIGIN`; the apex stays public. Publish supporting gateway/landing
+app SSO flows retain their return destination. Files and Notes use Home for
+`LANDING_ORIGIN`; Gateway uses the public apex when signed out and HOME_ORIGIN
+when signed in. The apex stays public. Publish supporting gateway/landing
 images and create Home DNS before rollout; Home reuses `LANDING_IMAGE_TAG`.

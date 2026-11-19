@@ -156,7 +156,7 @@ services:
       POSTGRES_URI_FROM: http://database-broker:8080/v1/instances/postgres/access_gateway/uri
       REDIS_URI_FROM: http://database-broker:8080/v1/instances/valkey/access_gateway/uri
       ORIGIN: https://auth.${DOMAIN:-razzie.cloud}
-      LANDING_ORIGIN: https://home.${DOMAIN:-razzie.cloud}
+      LANDING_ORIGIN: https://${DOMAIN:-razzie.cloud}
       HOME_ORIGIN: https://home.${DOMAIN:-razzie.cloud}
       RP_ID: auth.${DOMAIN:-razzie.cloud}
       RP_NAME: Razzie Cloud

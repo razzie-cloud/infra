@@ -220,9 +220,14 @@ Files and Notes in this stack set `ACCESS_GATEWAY_URL=http://access-gateway:8080
 They fetch `/.well-known/paseto-keys` at startup and refresh expired public-key
 sets on use. Caddy strips incoming `X-Auth-Request-Token` and copies the gateway's
 PASETO beside UUID/name. Assertions bind the app origin, method, URI and identity;
-Notes also verifies the signed admin authorization. Public shares and private
-health probes keep their existing access rules. Keys rotate daily in shared
-Redis/Valkey with overlapping public keys. Discovery outages cannot extend trust
+both apps authorize their admin actions internally from signed `admin=true`.
+Every Files/Notes management path uses ordinary `/forward_auth`; Notes maintenance APIs need
+no proxy role marker. Legacy proxy mode never grants admin rights. Publish and
+select a Notes image using this signed-role check before applying the simplified
+proxy rules; older images still require the removed marker and will deny admin APIs.
+Public shares and private health probes keep their existing access rules.
+Keys rotate daily in shared Redis/Valkey with overlapping public keys.
+Discovery outages cannot extend trust
 past cached expiry. Upgrade/publish the gateway before enabling verification in
 Files/Notes; select published images before rollout. See the gateway's
 [signed identity contract](https://github.com/razzie-cloud/access-gateway/blob/master/docs/reference.md#signed-proxy-identity).

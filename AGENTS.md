@@ -101,9 +101,10 @@
   PostgreSQL settings; back them up. Index rows/jobs are derived from S3. No Notes
   provider Docker secrets, credential environment variables or secret volume are
   needed. Export NOTES_IMAGE_TAG and optional egress/queue settings through Make.
-  Every Notes path uses forward auth; /v1/admin/* uses /forward_auth/admin.
-  Strip X-Notes-Admin and identity input first, then issue the admin marker only
-  after successful gateway admin validation. Keep callbacks protected; landing
+  Every Notes path uses /forward_auth, following Files. Notes authorizes all
+  app-owned admin actions from the verified signed admin role internally;
+  proxy markers and unsigned role headers grant no authority. Strip incoming
+  identity before copying verified headers. Keep callbacks protected; landing
   links and the gateway allowlist include Notes origins.
 - Files keeps credentials and crypt recovery passwords in its broker-provisioned
   PostgreSQL database. Preserve backups; no files-specific persistent volume or
@@ -149,7 +150,8 @@ Files/Notes use ACCESS_GATEWAY_URL=http://access-gateway:8080 for startup public
 discovery and mandatory PASETO identity verification. Publish a supporting gateway
 before enabling this stack configuration; Swarm retries startup failures. Strip
 X-Auth-Request-Token before auth and copy it with UUID/name. Notes admin routes
-also require signed admin=true, preserving the stripped/reissued marker. Public
+also require signed admin=true internally, using the same role check as shared
+connections and Files. Legacy proxy mode never grants admin rights. Public
 share hosts strip the token and keep capability access. Key discovery uses the
 private network; public app ORIGIN remains the audience. Expired verification
 keys never grant access during a gateway outage.

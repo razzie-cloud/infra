@@ -33,8 +33,9 @@
   export it in the Makefile. Parent `make latest-tags` discovers landing releases
   alongside gateway, broker, Files and Notes. Swarm serves it at `razzie.cloud`
   without auth.
-  The Go HTTP service embeds assets and renders HTML in memory at startup;
-  only the public page/assets and health endpoints are served. Config/source
+  The Go HTTP service embeds assets and renders public HTML in memory at startup;
+  the same service renders authenticated Home per request. Only page/assets and
+  health endpoints are served. Config/source
   stay private, and the container runs as an unprivileged user. Local Compose
   builds the landing submodule with runtime localhost settings. `LANDING_APPS_FILE` supplies the optional JSON app
   list through a Docker config; `landing-apps.json` includes Files, Notes, and Logs.
@@ -181,13 +182,19 @@ Use the deployment tests in cmd/infra-helper/deploy_test.go with its isolated fa
 Legacy app adapter layers are built by Dockerfile.broker-app; /broker-start bypasses
 unsafe upstream discovery while retaining their binaries and other arguments.
 
-Authenticated Home is a second instance of the landing image at `home.<DOMAIN>`,
-using `PAGE_MODE=home`, `ACCESS_GATEWAY_URL` and the same app-list Docker config.
-All paths use ordered identity stripping, gateway forward auth and verified
-header copying. Home verifies PASETO request identity and renders a personal
-welcome plus gateway device/session links; health probes use the private port.
+One landing service uses `PAGE_MODE=both`, `ACCESS_GATEWAY_URL` and a shared
+app-list Docker config to serve the public apex and authenticated `home.<DOMAIN>`
+by original Host on port 8080. Caddy's two site blocks use the same upstream;
+Home paths use ordered identity stripping, gateway forward auth and verified
+header copying, with no URI rewriting. Home verifies PASETO request identity and
+renders a personal welcome plus gateway device/session links; health probes use
+the private port.
 Gateway `HOME_ORIGIN` makes Home the direct sign-in destination while pending
 app SSO flows retain their return destination. Files and Notes use Home for
 `LANDING_ORIGIN`; Gateway uses the public apex when signed out and HOME_ORIGIN
-when signed in. The apex stays public. Publish supporting gateway/landing
-images and create Home DNS before rollout; Home reuses `LANDING_IMAGE_TAG`.
+when signed in. The apex stays public. Publish gateway/landing images supporting
+combined hostname routing and create Home DNS before rollout.
+Both pages share startup/restart availability: failed startup key discovery
+restarts the combined service. When upgrading from two services, explicitly
+remove the obsolete `<stack>_home` service after rollout; deployment does not
+prune removed services automatically.

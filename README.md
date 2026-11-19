@@ -95,13 +95,19 @@ to everyone on the public homepage; gateway admin authorization protects access 
 uses the public apex for `LANDING_ORIGIN` and Home for `HOME_ORIGIN`, so its logo
 returns signed-out visitors to the public landing page.
 
-Authenticated Home is a second instance of the landing image at `home.<DOMAIN>`,
-using `PAGE_MODE=home`, `ACCESS_GATEWAY_URL` and the same app-list Docker config.
-All paths use ordered identity stripping, gateway forward auth and verified
-header copying. Home verifies PASETO request identity and renders a personal
-welcome plus gateway device/session links; health probes use the private port.
+One landing service uses `PAGE_MODE=both`, `ACCESS_GATEWAY_URL` and a shared
+app-list Docker config to serve the public apex and authenticated `home.<DOMAIN>`
+by original Host on port 8080. Caddy's two site blocks use the same upstream;
+Home paths use ordered identity stripping, gateway forward auth and verified
+header copying, with no URI rewriting. Home verifies PASETO request identity and
+renders a personal welcome plus gateway device/session links; health probes use
+the private port.
 Gateway `HOME_ORIGIN` makes Home the direct sign-in destination while pending
 app SSO flows retain their return destination. Files and Notes use Home for
 `LANDING_ORIGIN`; Gateway uses the public apex when signed out and HOME_ORIGIN
-when signed in. The apex stays public. Publish supporting gateway/landing
-images and create Home DNS before rollout; Home reuses `LANDING_IMAGE_TAG`.
+when signed in. The apex stays public. Publish gateway/landing images supporting
+combined hostname routing and create Home DNS before rollout.
+Both pages share startup/restart availability: failed startup key discovery
+restarts the combined service. When upgrading from two services, explicitly
+remove the obsolete `<stack>_home` service after rollout; deployment does not
+prune removed services automatically.

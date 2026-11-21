@@ -5,7 +5,7 @@ set -euo pipefail
 script_dir=$(cd -- "$(dirname -- "$0")" && pwd)
 build_dir=$(mktemp -d "${TMPDIR:-/tmp}/razcloud-deploy.XXXXXXXX")
 trap 'rm -rf -- "$build_dir"' EXIT
-go build -o "$build_dir/deploy" "$script_dir"/cmd/infra-helper/{main,render,resources,deploy,pki}.go
+go build -o "$build_dir/deploy" "$script_dir"/cmd/infra-helper/{main,render,resources,deploy,pki,postgres}.go
 "$build_dir/deploy" "$@" &
 child=$!
 # Wait for Go's bounded resource cleanup before returning from an interruption.

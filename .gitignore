@@ -3,4 +3,5 @@
 .env.*
 !.env.example
 pki/
+backups/
 __pycache__/

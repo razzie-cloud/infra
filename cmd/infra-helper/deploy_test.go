@@ -107,12 +107,12 @@ func (f *fixture) execute(success bool, args ...string) string {
 		}
 	}
 	for _, o := range obj(f.state["service"]) {
-		if obj(o)["helper"] == true {
+		if obj(o)["helper"] == true && f.state["keep_upgrade_helper"] != true {
 			f.t.Fatal("helper leaked")
 		}
 	}
 	for _, o := range obj(f.state["config"]) {
-		if str(labels(obj(o))[label+"kind"]) == "deployment-lock" && str(labels(obj(o))[label+"run"]) != "other" {
+		if str(labels(obj(o))[label+"kind"]) == "deployment-lock" && str(labels(obj(o))[label+"run"]) != "other" && f.state["keep_upgrade_helper"] != true {
 			f.t.Fatal("lock leaked")
 		}
 	}

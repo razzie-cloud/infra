@@ -19,15 +19,19 @@ export DATABASE_BROKER_IMAGE_TAG ACCESS_GATEWAY_IMAGE_TAG FILES_IMAGE_TAG NOTES_
 export LANDING_IMAGE_TAG LANDING_APPS_FILE
 export RAZCHESS_IMAGE_TAG UUID_SERVER_IMAGE_TAG GEOIP_SERVER_IMAGE_TAG HUES_IMAGE_TAG
 export POSTGRES_IMAGE_TAG VALKEY_IMAGE_TAG WHOAMI_IMAGE_TAG CADDY_DOCKER_PROXY_IMAGE_TAG
+export POSTGRES_VOLUME_TARGET POSTGRES_BACKUP_DIR POSTGRES_UPGRADE_TIMEOUT
 export DOZZLE_IMAGE_TAG CAST_SHARE_TTL MAX_UPLOAD_BYTES
 
-.PHONY: help config deploy broker-pki
+.PHONY: help config deploy broker-pki postgres-upgrade
 
 help:
-	@printf '%s\n' 'Copy .env.example to .env and choose published service tags.' 'make broker-pki  Prepare a dedicated internal CA and broker TLS secret' 'make config  Validate and render the Swarm stack' 'make deploy  Create missing secrets and deploy the stack'
+	@printf '%s\n' 'Copy .env.example to .env and choose published service tags.' 'make broker-pki  Prepare a dedicated internal CA and broker TLS secret' 'make postgres-upgrade  Back up and upgrade PostgreSQL with Caddy offline' 'make config  Validate and render the Swarm stack' 'make deploy  Create missing secrets and deploy the stack'
 
 broker-pki:
 	bash ./deploy.sh --pki
+
+postgres-upgrade:
+	bash ./deploy.sh --postgres-upgrade
 
 config:
 	bash ./deploy.sh --check

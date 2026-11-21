@@ -76,6 +76,11 @@ func fakeDocker() int {
 	}
 	pair := func(x, y string) bool { return len(a) > 1 && a[0] == x && a[1] == y }
 	input := func() []byte { b, e := io.ReadAll(os.Stdin); must(e); return b }
+	if s["postgres_fixture"] == true {
+		if code, handled := fakePostgresDocker(s, a, output); handled {
+			return code
+		}
+	}
 	switch {
 	case a[0] == "compose":
 		if option("-f") == "docker-stack.yml" {

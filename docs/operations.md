@@ -74,6 +74,132 @@ for the new auth hostname.
 Back up PostgreSQL: files stores
 credentials and crypt passwords there; object data stays in S3.
 
+## PostgreSQL major upgrade
+
+`make postgres-upgrade` supports the standard local-volume Alpine PostgreSQL
+17 to 18 migration. It requires one PostgreSQL replica on the sole Swarm manager,
+with `DOCKER_CONTEXT` reaching that manager directly. Worker nodes are allowed.
+Custom commands, external WAL/tablespaces, nonlocal volumes, and other version or
+distribution migrations need a manual procedure. It does not change the local
+development Compose stack.
+
+Choose tags available in **both** `postgres` and `pgautoupgrade/pgautoupgrade`.
+The helper checks the actual binaries: the official destination minor version
+must be at least as recent as the upgrader's PostgreSQL 18 binary. Starting a
+newer PostgreSQL 18 minor release after migration is supported. Its bundled
+PostgreSQL 17 binary must also be at least as recent as the running server, so
+the upgrade never reads existing data with an older source binary. Identical
+tag names can contain different releases. An incompatible upgrader is rejected
+before any service stops; wait for an updated image rather than downgrading
+existing database files.
+Save the destination settings in your selected ignored `.env` first:
+
+```dotenv
+POSTGRES_IMAGE_TAG=18-alpine
+POSTGRES_VOLUME_TARGET=/var/lib/postgresql
+POSTGRES_BACKUP_DIR=./backups
+POSTGRES_UPGRADE_TIMEOUT=1800
+```
+
+Then run from infra, or use the parent target with `INFRA_ENV_FILE`:
+
+```sh
+make postgres-upgrade
+```
+
+Do **not** run `make deploy` between selecting these settings and completing
+the migration. The mount setting defaults to `/var/lib/postgresql/data` for
+existing installations; after migration it must remain `/var/lib/postgresql`.
+Use the same environment file and preserve these settings on later deployments.
+Make command-line overrides work, but are not persisted automatically.
+
+The target acquires the same lock as deployment/PKI, inspects the actual volume
+and node, pulls and checks both destination images, and records their registry
+digests. Before downtime it creates a private local backup directory and saves
+`recovery.json`, including the original image, volume mount and replica counts.
+The upgrade then:
+
+1. Scales Caddy to zero and waits for its tasks to stop, then does the same for
+   PostgreSQL. All public routes, including apps without databases, are offline.
+   Other services and background workers stay running and may report database
+   errors. Stopping PostgreSQL prevents their database writes during backup.
+2. Checks for clean PostgreSQL shutdown, mounts the volume read-only, and streams
+   a compressed tar archive to the machine running Make. A `.partial` suffix is
+   retained until the complete archive, gzip checksum and cluster files validate.
+   Ownership and permissions are retained. External-storage symlinks are refused
+   because their contents would not be included in the backup.
+3. Runs a temporary `pgautoupgrade` service on the volume node using the existing
+   password secret and `PGAUTO_ONESHOT=yes`, without network attachments or public
+   ports. Default reindexing remains enabled. It checks successful task exit and
+   the new `18/docker/PG_VERSION` before proceeding.
+4. Updates only the stopped PostgreSQL service to the selected official image
+   digest and mount, starts it, and checks SQL connectivity and server major
+   version. Finally it restores Caddy's original replica count and waits for
+   running tasks. No full-stack deployment or application rollout is performed.
+
+The timeout is in seconds for each phase. Downtime includes the archive download,
+local verification and reindexing; allow for database size and connection speed.
+The archive and recovery metadata are mode 0600 inside a mode 0700 directory under
+`POSTGRES_BACKUP_DIR` (relative paths resolve from infra). The default `backups/`
+is Git-ignored. These archives contain accounts, S3 credentials and crypt recovery
+passwords. Store them securely and retain the source PostgreSQL image for recovery.
+
+### Failure and recovery
+
+Before migration may have started, failure attempts to restore the original
+PostgreSQL replica count, verifies SQL readiness, then restores Caddy. A failed
+or incomplete backup never starts the upgrader.
+Revert the destination image/mount settings before a normal deployment if the
+upgrade did not complete; otherwise deployment could start the new image against
+the original data directory.
+
+Once the upgrade helper may have started, any failure attempts to remove it and
+leave PostgreSQL and Caddy at zero replicas. The image uses `pg_upgrade --link`
+and deletes old cluster directories; changing the image back is not rollback.
+If helper removal cannot be verified, the deployment lock is intentionally kept.
+After a machine/client crash, inspect and remove the helper before releasing the
+lock named in the output; inspect `docker service ls` and the task/container state
+on the volume node. A lock configuration alone does not stop an existing helper.
+
+Use `recovery.json` and the verified `postgres.tar.gz` for recovery:
+
+1. Keep Caddy and PostgreSQL at zero replicas and ensure no upgrade helper or other
+   container is using the data volume.
+2. Restore the archive into a **new, empty named volume** on the original node,
+   preserving numeric ownership and permissions. Do not extract over a partially
+   upgraded volume. Keep that volume for diagnosis.
+3. Update the stopped PostgreSQL service to `original_image` and replace its data
+   mount with the restored volume at `original_mount`. Keep the existing password
+   secret. Restore its recorded replica count and verify SQL connectivity.
+4. Restore the recorded Caddy replica count. Revert the image and mount settings
+   in `.env` before any normal deployment. If using a new volume, also update the
+   stack's volume reference to that restored volume before deploying again.
+
+The cold archive restores PostgreSQL only. App workers remain running, so S3 and
+Valkey are not part of a coordinated snapshot. After a successful upgrade, users
+and workers can write new data; reverting to the archive loses those later
+PostgreSQL changes unless they are reconciled separately.
+
+### Real upgrade integration test
+
+Run `bash scripts/test-postgres-upgrade.sh` from infra to exercise the real Make
+target in a disposable nested Swarm. It requires a local default Docker daemon
+with privileged-container support, Go, Make and Bash. It initializes a fresh
+PostgreSQL 17 fixture with 1,000 accounts and 10,000 events, checks data/schema/role
+fingerprints after migration, tests constraints and password login, then restores
+the downloaded archive into a separate PostgreSQL 17 volume and compares it too.
+The parent daemon's Swarm settings and existing services are unchanged; the
+nested daemon and its volumes are removed on exit. Private evidence stays in the
+printed temporary directory. Fixture-only upgrader logs are captured for diagnosis.
+
+The default source tag is deliberately pinned to an older minor release to
+exercise compatibility with the upgrader's bundled source binary; the database is
+created fresh, never downgraded. `PGE2E_SOURCE_TAG` and `PGE2E_TARGET_TAG` select
+other published fixture images. For a known incompatible image pair, setting
+`PGE2E_EXPECT_PREFLIGHT_FAILURE=yes` instead verifies refusal with both services
+still running and all original data unchanged. This test is opt-in and pulls
+images; it is separate from the ordinary fake-Docker Go suite.
+
 ## RazChess, UUID and GeoIP
 
 The public services retain their legacy hostnames: `chess.razzie.cloud`,

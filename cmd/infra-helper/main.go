@@ -1,4 +1,4 @@
-// Run with go run ./cmd/infra-helper [--check|--pki], from the stack directory.
+// Run from the stack directory; see the Makefile for operations.
 package main
 
 import (
@@ -128,9 +128,7 @@ type docker struct {
 	context string
 }
 
-func (d *docker) run(data []byte, optional bool, timeout time.Duration, args ...string) []byte {
-	ctx, cancel := context.WithTimeout(d.ctx, timeout)
-	defer cancel()
+func (d *docker) command(ctx context.Context, args ...string) *exec.Cmd {
 	command := d.env["DOCKER_CLI"]
 	if command == "" {
 		command = "docker"
@@ -139,6 +137,13 @@ func (d *docker) run(data []byte, optional bool, timeout time.Duration, args ...
 	for k, v := range d.env {
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}
+	return cmd
+}
+
+func (d *docker) run(data []byte, optional bool, timeout time.Duration, args ...string) []byte {
+	ctx, cancel := context.WithTimeout(d.ctx, timeout)
+	defer cancel()
+	cmd := d.command(ctx, args...)
 	cmd.Stdin = bytes.NewReader(data)
 	b, e := cmd.Output()
 	if ctx.Err() != nil {
@@ -252,10 +257,17 @@ func (d *deployment) cleanup() {
 func run(ctx context.Context, args []string) (code int) {
 	var d *deployment
 	pki := len(args) == 1 && args[0] == "--pki"
+	postgres := len(args) == 1 && args[0] == "--postgres-upgrade"
 	defer func() {
 		if r := recover(); r != nil {
 			code = 1
-			if pki {
+			if postgres {
+				message := "Check the saved recovery instructions"
+				if f, ok := r.(failure); ok {
+					message = string(f)
+				}
+				fmt.Fprintln(os.Stderr, "PostgreSQL upgrade stopped: "+message)
+			} else if pki {
 				fmt.Fprintln(os.Stderr, "Broker PKI setup stopped. Check public inputs, existing secret state and file permissions; no automatic rotation.")
 			} else {
 				stage := "configuration"
@@ -270,11 +282,13 @@ func run(ctx context.Context, args []string) (code int) {
 			}
 		}
 	}()
-	if len(args) > 1 || (len(args) == 1 && args[0] != "--check" && !pki) {
-		fail("Usage: go run ./cmd/infra-helper [--check|--pki]")
+	if len(args) > 1 || (len(args) == 1 && args[0] != "--check" && !pki && !postgres) {
+		fail("Usage: go run ./cmd/infra-helper [--check|--pki|--postgres-upgrade]")
 	}
 	d = newDeployment(ctx)
-	if pki {
+	if postgres {
+		d.upgradePostgres()
+	} else if pki {
 		d.preparePKI()
 	} else {
 		d.execute(len(args) == 1)

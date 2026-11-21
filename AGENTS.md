@@ -28,6 +28,16 @@
   RazChess, and GeoIP join `internal` and `web`; Caddy, Dozzle, whoami, UUID,
   0x40hues, and the public landing service join `web`. Only Caddy publishes
   ingress ports (80/443). Keep databases and broker APIs private.
+- `make postgres-upgrade` is an explicit maintenance operation, never validation.
+  It shares the deployment lock, stops Caddy and PostgreSQL, streams a private
+  cold archive locally and verifies it before allowing volume mutation. Only
+  PostgreSQL is updated; other service specs stay unchanged. Preserve the
+  original replica counts and keep ingress closed until SQL readiness succeeds.
+  Once migration may have begun, failure keeps PostgreSQL/Caddy stopped and
+  requires manual recovery. If the upgrade helper cannot be removed, retain
+  the lock. Keep POSTGRES_VOLUME_TARGET synchronized with the chosen image in
+  the operator environment; the default preserves the original mount.
+  Run the isolated PostgreSQL helper tests when changing this lifecycle.
 - The separate `razzie-cloud/landing` repository owns the homepage image. Build and publish
   `ghcr.io/razzie-cloud/landing` before selecting `LANDING_IMAGE_TAG` in `.env`;
   export it in the Makefile. Parent `make latest-tags` discovers landing releases

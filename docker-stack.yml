@@ -65,7 +65,7 @@ services:
     networks:
       - internal
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:${POSTGRES_VOLUME_TARGET:-/var/lib/postgresql/data}
     deploy:
       placement:
         constraints:

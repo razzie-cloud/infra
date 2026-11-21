@@ -84,6 +84,12 @@ configuration, S3 credentials, and crypt recovery passwords; file contents remai
 See [operations](docs/operations.md) for environment overrides, routing, Dozzle,
 and upgrade details, or [AGENTS.md](AGENTS.md) for deployment invariants and checks.
 
+For a PostgreSQL major upgrade, use `make postgres-upgrade` after selecting the
+destination image and volume mount in `.env`. It takes Caddy offline, downloads
+a verified cold volume archive, upgrades PostgreSQL and restores ingress after
+a SQL readiness check. Read the [upgrade and recovery procedure](docs/operations.md#postgresql-major-upgrade)
+before running it; a normal deployment does not migrate database files.
+
 The landing app list is a Docker config sourced from `LANDING_APPS_FILE`
 (default `./landing-apps.json`). The example lists Files, Notes, and Logs; use an empty
 `apps` array for Sign in alone. See the [landing config reference](https://github.com/razzie-cloud/landing#configuration)
